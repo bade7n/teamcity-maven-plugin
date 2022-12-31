@@ -1,0 +1,15 @@
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.jetbrains.teamcity</groupId>
+                <artifactId>teamcity-maven-plugin</artifactId>
+                <version>1.0-SNAPSHOT</version>
+                <configuration>
+                    <excludeGroupId>commons-codec</excludeGroupId>
+                    <agent>*</agent>
+                    <server>*</server>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
