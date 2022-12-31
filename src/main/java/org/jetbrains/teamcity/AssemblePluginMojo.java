@@ -7,12 +7,15 @@ import org.apache.maven.plugins.annotations.Component;
 import org.apache.maven.plugins.annotations.Mojo;
 import org.apache.maven.plugins.annotations.Parameter;
 import org.apache.maven.plugins.annotations.ResolutionScope;
+import org.apache.maven.project.MavenProject;
 
 import java.io.File;
 
-@Mojo(name = "build", aggregator = true, requiresDependencyResolution = ResolutionScope.TEST, requiresDependencyCollection = ResolutionScope.TEST)
+@Mojo(name = "build", requiresDependencyResolution = ResolutionScope.TEST, requiresDependencyCollection = ResolutionScope.TEST)
 public class AssemblePluginMojo extends AbstractMojo {
 
+    @Parameter(defaultValue = "${project}", required = true, readonly = true)
+    private MavenProject project;
     /**
      * Input directory which contains the files that will zipped. Defaults to the
      * build output directory.

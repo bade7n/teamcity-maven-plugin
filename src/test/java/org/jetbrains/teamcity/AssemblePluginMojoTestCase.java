@@ -1,6 +1,5 @@
 package org.jetbrains.teamcity;
 
-import org.apache.maven.plugin.testing.AbstractMojoTestCase;
 import org.apache.maven.plugin.testing.MojoRule;
 import org.junit.Rule;
 import org.junit.Test;
@@ -11,14 +10,14 @@ import static org.codehaus.plexus.PlexusTestCase.getTestFile;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 
-public class AssemblePluginMojoTestCase extends AbstractMojoTestCase {
-//    @Rule
-//    public MojoRule rule = new MojoRule();
+public class AssemblePluginMojoTestCase {
+    @Rule
+    public MojoRule rule = new MojoRule();
 
-    protected void setUp() throws Exception {
-        super.setUp();
-    }
-
+//    protected void setUp() throws Exception {
+//        super.setUp();
+//    }
+//
     @Test
     public void testSimple() {
         System.out.println(1);
@@ -27,11 +26,14 @@ public class AssemblePluginMojoTestCase extends AbstractMojoTestCase {
     @Test
     public void testMakeSimpleArtifact()
             throws Exception {
-        File pom = getTestFile("src/test/resources/unit/basic/pom.xml");
+        File pom = getTestFile("src/test/resources/unit/project-to-test/pom.xml");
         assertNotNull(pom);
         assertTrue(pom.exists());
+//        mojo = (MyPlugin) ;
+        AssemblePluginMojo myMojo = (AssemblePluginMojo) rule.lookupMojo("build", pom);
 
-        AssemblePluginMojo myMojo = (AssemblePluginMojo) lookupMojo("assemble", pom);
+        rule.executeMojo(getTestFile("src/test/resources/unit/project-to-test"), "build");
+//        AssemblePluginMojo myMojo1 = (AssemblePluginMojo) rule.configureMojo(myMojo, "teamcity-maven-plugin", pom);
         assertNotNull(myMojo);
         myMojo.execute();
     }
