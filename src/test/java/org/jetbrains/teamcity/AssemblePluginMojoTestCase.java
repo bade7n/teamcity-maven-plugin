@@ -26,15 +26,10 @@ public class AssemblePluginMojoTestCase {
     @Test
     public void testMakeSimpleArtifact()
             throws Exception {
-        File pom = getTestFile("src/test/resources/unit/project-to-test/pom.xml");
-        assertNotNull(pom);
-        assertTrue(pom.exists());
-//        mojo = (MyPlugin) ;
-        AssemblePluginMojo myMojo = (AssemblePluginMojo) rule.lookupMojo("build", pom);
+        rule.executeMojo(getTestDir("unit/project-to-test"), "build");
+    }
 
-        rule.executeMojo(getTestFile("src/test/resources/unit/project-to-test"), "build");
-//        AssemblePluginMojo myMojo1 = (AssemblePluginMojo) rule.configureMojo(myMojo, "teamcity-maven-plugin", pom);
-        assertNotNull(myMojo);
-        myMojo.execute();
+    private File getTestDir(String pathToBase) {
+        return new File(getClass().getClassLoader().getResource(pathToBase).getFile());
     }
 }

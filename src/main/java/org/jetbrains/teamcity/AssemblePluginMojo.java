@@ -50,6 +50,12 @@ public class AssemblePluginMojo extends AbstractMojo {
 
     @Override
     public void execute() throws MojoExecutionException, MojoFailureException {
+        prepareStructure();
+        project.getAttachedArtifacts();
         System.out.println("1");
+    }
+
+    private void prepareStructure() {
+        new File(String.valueOf(outputDirectory)).mkdirs();
     }
 }
