@@ -24,8 +24,7 @@ public class AssemblePluginMojoTestCase {
     }
 
     @Test
-    public void testMakeSimpleArtifact()
-            throws Exception {
+    public void testMakeSimpleArtifact() throws Exception {
         rule.executeMojo(getTestDir("unit/project-to-test"), "build");
     }
 

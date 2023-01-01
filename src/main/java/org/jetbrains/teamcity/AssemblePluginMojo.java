@@ -3,13 +3,17 @@ package org.jetbrains.teamcity;
 import org.apache.maven.plugin.AbstractMojo;
 import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugin.MojoFailureException;
-import org.apache.maven.plugins.annotations.Component;
+import org.apache.maven.plugin.PluginConfigurationException;
 import org.apache.maven.plugins.annotations.Mojo;
 import org.apache.maven.plugins.annotations.Parameter;
 import org.apache.maven.plugins.annotations.ResolutionScope;
 import org.apache.maven.project.MavenProject;
+//import org.apache.maven.shared.dependency.graph.DependencyCollectorBuilder;
 
 import java.io.File;
+import java.nio.file.Path;
+
+import static java.nio.file.Files.exists;
 
 @Mojo(name = "build", requiresDependencyResolution = ResolutionScope.TEST, requiresDependencyCollection = ResolutionScope.TEST)
 public class AssemblePluginMojo extends AbstractMojo {
@@ -47,15 +51,22 @@ public class AssemblePluginMojo extends AbstractMojo {
 
     @Parameter(defaultValue = "${project.build.outputDirectory}/META-INF/teamcity-plugin.xml", property = "pluginDescriptorPath")
     private String pluginDescriptorPath;
+//    @Component(
+//            hint = "default"
+//    )
+//    private DependencyCollectorBuilder dependencyCollectorBuilder;
 
     @Override
     public void execute() throws MojoExecutionException, MojoFailureException {
-        prepareStructure();
+        verifyAndPrepareStructure();
         project.getAttachedArtifacts();
         System.out.println("1");
     }
 
-    private void prepareStructure() {
+    private void verifyAndPrepareStructure() throws MojoExecutionException {
         new File(String.valueOf(outputDirectory)).mkdirs();
+        if (!exists(Path.of(pluginDescriptorPath)))
+            throw new MojoExecutionException(String.format("`pluginDescriptorPath` must point to teamcity plugin descriptor (%s).", pluginDescriptorPath));
+
     }
 }
