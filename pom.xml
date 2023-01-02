@@ -12,6 +12,7 @@
     <maven.compiler.source>11</maven.compiler.source>
     <maven.compiler.target>11</maven.compiler.target>
     <maven.version>3.8.6</maven.version>
+    <resolverVersion>1.0.0.v20140518</resolverVersion>
   </properties>
 
   <dependencies>
@@ -43,11 +44,26 @@
       <artifactId>maven-compat</artifactId>
       <version>${maven.version}</version>
     </dependency>
-<!--    <dependency>-->
-<!--      <groupId>org.apache.maven.shared</groupId>-->
-<!--      <artifactId>maven-dependency-tree</artifactId>-->
-<!--      <version>3.2.1</version>-->
-<!--    </dependency>-->
+    <dependency>
+      <groupId>org.apache.maven.shared</groupId>
+      <artifactId>maven-dependency-tree</artifactId>
+      <version>3.2.1</version>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.maven.shared</groupId>
+      <artifactId>maven-common-artifact-filters</artifactId>
+      <version>3.3.2</version>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.maven.shared</groupId>
+      <artifactId>maven-artifact-transfer</artifactId>
+      <version>0.13.1</version>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.maven.shared</groupId>
+      <artifactId>maven-shared-utils</artifactId>
+      <version>3.3.4</version>
+    </dependency>
 
     <dependency>
       <groupId>junit</groupId>
@@ -61,6 +77,25 @@
       <version>3.3.0</version>
       <scope>test</scope>
     </dependency>
+    <dependency>
+      <groupId>org.eclipse.aether</groupId>
+      <artifactId>aether-connector-basic</artifactId>
+      <version>${resolverVersion}</version>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.eclipse.aether</groupId>
+      <artifactId>aether-transport-file</artifactId>
+      <version>${resolverVersion}</version>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.eclipse.aether</groupId>
+      <artifactId>aether-transport-http</artifactId>
+      <version>${resolverVersion}</version>
+      <scope>test</scope>
+    </dependency>
+
   </dependencies>
 
 
@@ -78,6 +113,12 @@
               <goal>helpmojo</goal>
             </goals>
           </execution>
+          <execution>
+            <id>mojo-descriptor</id>
+            <goals>
+              <goal>descriptor</goal>
+            </goals>
+          </execution>
         </executions>
       </plugin>
       <plugin>
@@ -88,22 +129,6 @@
           <target>11</target>
         </configuration>
       </plugin>
-      <!--      <plugin>-->
-<!--        <groupId>org.apache.maven.plugins</groupId>-->
-<!--        <artifactId>maven-plugin-plugin</artifactId>-->
-<!--        <version>3.2</version>-->
-<!--        <executions>-->
-<!--          <execution>-->
-<!--            <id>mojo-descriptor</id>-->
-<!--            <goals>-->
-<!--              <goal>descriptor</goal>-->
-<!--            </goals>-->
-<!--          </execution>-->
-<!--        </executions>-->
-<!--        <configuration>-->
-<!--          <skipErrorNoDescriptorsFound>true</skipErrorNoDescriptorsFound>-->
-<!--        </configuration>-->
-<!--      </plugin>-->
     </plugins>
   </build>
 </project>

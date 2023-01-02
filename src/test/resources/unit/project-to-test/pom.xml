@@ -30,6 +30,7 @@
                     <excludeGroupId>commons-codec</excludeGroupId>
                     <agent>*</agent>
                     <server>*</server>
+                    <unitTest>true</unitTest>
                 </configuration>
                 <executions>
                     <execution>
