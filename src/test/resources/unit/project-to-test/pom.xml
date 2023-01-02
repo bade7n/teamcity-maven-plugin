@@ -28,7 +28,7 @@
                 <version>1.0-SNAPSHOT</version>
                 <configuration>
                     <excludeGroupId>commons-codec</excludeGroupId>
-                    <agent>*</agent>
+                    <agent>commons-beanutils:commons-beanutils-core:*:*</agent>
                     <server>*</server>
                     <unitTest>true</unitTest>
                 </configuration>

@@ -1,5 +1,6 @@
 package org.jetbrains.teamcity;
 
+import org.apache.maven.artifact.Artifact;
 import org.apache.maven.artifact.resolver.filter.ArtifactFilter;
 import org.apache.maven.artifact.resolver.filter.ScopeArtifactFilter;
 import org.apache.maven.execution.MavenSession;
@@ -31,6 +32,7 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Objects;
 
 import static java.nio.file.Files.exists;
 import static org.apache.maven.artifact.Artifact.SCOPE_COMPILE_PLUS_RUNTIME;
@@ -93,10 +95,10 @@ public class AssemblePluginMojo extends AbstractMojo {
     @Parameter(defaultValue = "org.jetbrains.teamcity", property = "excludeGroupId")
     private String excludeGroupId;
 
-    @Parameter(defaultValue = "*1", property = "agent")
+    @Parameter(defaultValue = "*", property = "agent")
     private String agent;
 
-    @Parameter(defaultValue = "*2", property = "server")
+    @Parameter(defaultValue = "*", property = "server")
     private String server;
 
     @Parameter(defaultValue = "${project.build.outputDirectory}/META-INF/teamcity-plugin.xml", property = "pluginDescriptorPath")
@@ -145,11 +147,41 @@ public class AssemblePluginMojo extends AbstractMojo {
 
                 dependencyTreeString = serializeDependencyTree(rootNode);
             }
+            buildAgentPlugin();
+            buildServerPlugin();
             getLog().warn(dependencyTreeString);
         } catch (DependencyGraphBuilderException | DependencyCollectorBuilderException exception) {
             throw new MojoExecutionException("Cannot build project dependency graph", exception);
         }
         project.getAttachedArtifacts();
+    }
+
+    private void buildServerPlugin() {
+    }
+
+    private void buildAgentPlugin(String agentSpec) {
+        Artifact agentArtifact = null;
+        if (Objects.equals("*", agentSpec))
+            agentArtifact = rootNode.getArtifact();
+        else {
+            List<String> patterns = Arrays.asList(agentSpec.split(","));
+            ArtifactDependencyNodeFilter dnf = new ArtifactDependencyNodeFilter(new StrictPatternIncludesArtifactFilter(patterns));
+
+            CollectingDependencyNodeVisitor collectingVisitor = new CollectingDependencyNodeVisitor();
+            DependencyNodeVisitor firstPassVisitor = new FilteringDependencyNodeVisitor(collectingVisitor, dnf);
+            rootNode.accept(firstPassVisitor);
+
+
+            StringWriter writer = new StringWriter();
+            DependencyNodeVisitor visitor = getSerializingDependencyNodeVisitor(writer);
+            CollectingDependencyNodeVisitor collectingVisitor1 = new CollectingDependencyNodeVisitor();
+            DependencyNodeFilter secondPassFilter = new DescendantOrSelfDependencyNodeFilter(collectingVisitor.getNodes());
+            visitor = new FilteringDependencyNodeVisitor(visitor, secondPassFilter);
+            rootNode.accept(visitor);
+//            visitor.visit(rootNode);
+
+            System.out.println(writer.toString());
+        }
     }
 
     private void verifyAndPrepareStructure() throws MojoExecutionException {
@@ -165,7 +197,6 @@ public class AssemblePluginMojo extends AbstractMojo {
         // filter scope
         if (scope != null) {
             getLog().debug("+ Resolving dependency tree for scope '" + scope + "'");
-
             filter = new ScopeArtifactFilter(scope);
         } else {
             filter = null;
