@@ -3,11 +3,22 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
     <groupId>jb.int</groupId>
-    <artifactId>project-to-test</artifactId>
+    <artifactId>multi-module-to-test</artifactId>
     <version>1.0-SNAPSHOT</version>
+    <packaging>pom</packaging>
     <name>Test</name>
 
+    <modules>
+        <module>moduleA</module>
+        <module>moduleB</module>
+    </modules>
+
     <dependencies>
+        <dependency>
+            <groupId>jb.int</groupId>
+            <artifactId>moduleA</artifactId>
+            <version>1.0-SNAPSHOT</version>
+        </dependency>
         <dependency>
             <groupId>commons-beanutils</groupId>
             <artifactId>commons-beanutils-core</artifactId>
@@ -34,7 +45,7 @@
                 <version>1.0-SNAPSHOT</version>
                 <configuration>
                     <excludeGroupId>commons-codec</excludeGroupId>
-                    <agent>commons-beanutils:commons-beanutils-core:*:*</agent>
+                    <agent>:moduleA:*:*</agent>
                     <server>*</server>
                     <unitTest>true</unitTest>
                 </configuration>

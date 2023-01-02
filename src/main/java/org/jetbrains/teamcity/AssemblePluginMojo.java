@@ -1,6 +1,8 @@
 package org.jetbrains.teamcity;
 
+import com.google.common.collect.Lists;
 import org.apache.maven.artifact.Artifact;
+import org.apache.maven.artifact.repository.ArtifactRepository;
 import org.apache.maven.artifact.resolver.filter.ArtifactFilter;
 import org.apache.maven.artifact.resolver.filter.ScopeArtifactFilter;
 import org.apache.maven.execution.MavenSession;
@@ -20,24 +22,27 @@ import org.apache.maven.shared.dependency.graph.filter.AndDependencyNodeFilter;
 import org.apache.maven.shared.dependency.graph.filter.ArtifactDependencyNodeFilter;
 import org.apache.maven.shared.dependency.graph.filter.DependencyNodeFilter;
 import org.apache.maven.shared.dependency.graph.traversal.*;
+import org.codehaus.plexus.component.annotations.Requirement;
 import org.eclipse.aether.RepositorySystem;
 import org.eclipse.aether.RepositorySystemSession;
+import org.eclipse.aether.artifact.DefaultArtifact;
 import org.eclipse.aether.repository.RemoteRepository;
+import org.eclipse.aether.resolution.ArtifactRequest;
+import org.eclipse.aether.resolution.ArtifactResolutionException;
+import org.eclipse.aether.resolution.ArtifactResult;
 
 import java.io.File;
-import java.io.IOException;
 import java.io.StringWriter;
 import java.io.Writer;
 import java.nio.file.Path;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Objects;
+import java.util.*;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import static java.nio.file.Files.exists;
 import static org.apache.maven.artifact.Artifact.SCOPE_COMPILE_PLUS_RUNTIME;
 
-@Mojo(name = "build", requiresDependencyResolution = ResolutionScope.TEST, requiresDependencyCollection = ResolutionScope.TEST)
+@Mojo(name = "build", aggregator = true, requiresProject = true, requiresDependencyResolution = ResolutionScope.TEST, requiresDependencyCollection = ResolutionScope.TEST)
 public class AssemblePluginMojo extends AbstractMojo {
 
     @Parameter(defaultValue = "${project}", required = true, readonly = true)
@@ -110,8 +115,6 @@ public class AssemblePluginMojo extends AbstractMojo {
     @Component(hint = "default")
     private DependencyGraphBuilder dependencyGraphBuilder;
 
-    private DependencyNode rootNode;
-
     @Parameter(property = "tokens", defaultValue = "standard")
     private String tokens;
 
@@ -127,6 +130,14 @@ public class AssemblePluginMojo extends AbstractMojo {
     @Parameter(property = "unitTest", defaultValue = "${unitTest}")
     private boolean unitTest;
 
+    @Parameter( defaultValue = "${localRepository}", readonly = true, required = true )
+    private ArtifactRepository local;
+    @Component
+    private org.eclipse.aether.RepositorySystem repoSystem;
+
+    @Parameter( defaultValue = "${project.remoteProjectRepositories}", readonly = true, required = true )
+    private List<RemoteRepository> repositories;
+
     @Override
     public void execute() throws MojoExecutionException, MojoFailureException {
         verifyAndPrepareStructure();
@@ -135,53 +146,107 @@ public class AssemblePluginMojo extends AbstractMojo {
                 new DefaultProjectBuildingRequest(session.getProjectBuildingRequest());
         buildingRequest.setProject(project);
         try {
-            String dependencyTreeString;
-
-            if (verbose) {
-                rootNode = dependencyCollectorBuilder.collectDependencyGraph(buildingRequest, artifactFilter);
-                dependencyTreeString = serializeDependencyTree(rootNode);
-            } else {
-                // non-verbose mode use dependency graph component, which gives consistent results with Maven version
-                // running
-                rootNode = dependencyGraphBuilder.buildDependencyGraph(buildingRequest, artifactFilter);
-
-                dependencyTreeString = serializeDependencyTree(rootNode);
-            }
-            buildAgentPlugin();
-            buildServerPlugin();
-            getLog().warn(dependencyTreeString);
+            DependencyNode rootNode = findRootNode(artifactFilter, buildingRequest);
+            buildAgentPlugin(rootNode, agent);
+            buildServerPlugin(rootNode, server);
         } catch (DependencyGraphBuilderException | DependencyCollectorBuilderException exception) {
             throw new MojoExecutionException("Cannot build project dependency graph", exception);
         }
         project.getAttachedArtifacts();
     }
 
-    private void buildServerPlugin() {
+    private DependencyNode findRootNode(ArtifactFilter artifactFilter, ProjectBuildingRequest buildingRequest) throws DependencyCollectorBuilderException, DependencyGraphBuilderException {
+        DependencyNode rootNode;
+        String dependencyTreeString;
+        if (verbose) {
+            rootNode = dependencyCollectorBuilder.collectDependencyGraph(buildingRequest, artifactFilter);
+            dependencyTreeString = serializeDependencyTree(rootNode);
+        } else {
+            // non-verbose mode use dependency graph component, which gives consistent results with Maven version
+            // running
+            rootNode = dependencyGraphBuilder.buildDependencyGraph(buildingRequest, artifactFilter);
+            dependencyTreeString = serializeDependencyTree(rootNode);
+        }
+        getLog().warn(dependencyTreeString);
+
+        return rootNode;
     }
 
-    private void buildAgentPlugin(String agentSpec) {
-        Artifact agentArtifact = null;
-        if (Objects.equals("*", agentSpec))
-            agentArtifact = rootNode.getArtifact();
-        else {
-            List<String> patterns = Arrays.asList(agentSpec.split(","));
-            ArtifactDependencyNodeFilter dnf = new ArtifactDependencyNodeFilter(new StrictPatternIncludesArtifactFilter(patterns));
+    private File resolve(Artifact unresolvedArtifact) throws MojoExecutionException {
 
-            CollectingDependencyNodeVisitor collectingVisitor = new CollectingDependencyNodeVisitor();
-            DependencyNodeVisitor firstPassVisitor = new FilteringDependencyNodeVisitor(collectingVisitor, dnf);
-            rootNode.accept(firstPassVisitor);
+            // Here, it becomes messy. We ask Maven to resolve the artifact's location.
+            // It may imply downloading it from a remote repository,
+            // searching the local repository or looking into the reactor's cache.
 
+            // To achieve this, we must use Aether
+            // (the dependency mechanism behind Maven).
+            String artifactId = unresolvedArtifact.getArtifactId();
+            org.eclipse.aether.artifact.Artifact aetherArtifact = new DefaultArtifact(
+                    unresolvedArtifact.getGroupId(),
+                    unresolvedArtifact.getArtifactId(),
+                    unresolvedArtifact.getClassifier(),
+                    unresolvedArtifact.getType(),
+                    unresolvedArtifact.getVersion());
 
-            StringWriter writer = new StringWriter();
-            DependencyNodeVisitor visitor = getSerializingDependencyNodeVisitor(writer);
-            CollectingDependencyNodeVisitor collectingVisitor1 = new CollectingDependencyNodeVisitor();
-            DependencyNodeFilter secondPassFilter = new DescendantOrSelfDependencyNodeFilter(collectingVisitor.getNodes());
-            visitor = new FilteringDependencyNodeVisitor(visitor, secondPassFilter);
-            rootNode.accept(visitor);
-//            visitor.visit(rootNode);
+            ArtifactRequest req = new ArtifactRequest().setRepositories( this.repositories ).setArtifact( aetherArtifact );
+            ArtifactResult resolutionResult;
+            try {
+                resolutionResult = this.repoSystem.resolveArtifact( this.repoSession, req );
 
-            System.out.println(writer.toString());
+            } catch( ArtifactResolutionException e ) {
+                throw new MojoExecutionException( "Artifact " + artifactId + " could not be resolved.", e );
+            }
+
+            // The file should exists, but we never know.
+            File file = resolutionResult.getArtifact().getFile();
+            if( file == null || ! file.exists()) {
+                getLog().warn( "Artifact " + artifactId + " has no attached file. Its content will not be copied in the target model directory." );
+            }
+            return file;
+    }
+
+    private void buildServerPlugin(DependencyNode rootNode, String server) {
+    }
+
+    public void buildAgentPlugin(DependencyNode rootNode, String agentSpec) throws MojoExecutionException {
+        List<DependencyNode> nodes = getDependencyNodeList(rootNode, agentSpec);
+        List<Artifact> reactorProjectList = reactorProjects.stream().flatMap(this::getArtifactList).collect(Collectors.toList());
+        for (DependencyNode node: nodes) {
+            File file = resolve(node.getArtifact());
+            if (reactorProjectList.contains(node)) {
+                System.out.println("Node is reactor dependency " + node.toNodeString());
+            } else {
+                System.out.println("Node is not reactor dependency " + node.toNodeString());
+            }
         }
+        System.out.println(nodes);
+    }
+
+    private Stream<Artifact> getArtifactList(MavenProject it) {
+        return new ArrayList<Artifact>() {{
+            add(it.getArtifact());
+            addAll(it.getArtifacts());
+        }}.stream();
+    }
+
+    private List<DependencyNode> getDependencyNodeList(DependencyNode rootNode, String agentSpec) {
+        List<DependencyNode> nodes;
+        if (Objects.equals("*", agentSpec) || agentSpec == null || agentSpec.isBlank()) {
+            nodes = Collections.singletonList(rootNode);
+        } else {
+            List<String> patterns = Arrays.asList(agentSpec.split(","));
+            CollectingDependencyNodeVisitor collectingVisitor = new CollectingDependencyNodeVisitor();
+            DependencyNodeVisitor firstPassVisitor = new FilteringDependencyNodeVisitor(collectingVisitor, new ArtifactDependencyNodeFilter(new StrictPatternIncludesArtifactFilter(patterns)));
+            rootNode.accept(firstPassVisitor);
+            nodes = collectingVisitor.getNodes();
+        }
+        StringWriter writer = new StringWriter();
+        CollectingDependencyNodeVisitor transitiveCollectingVisitor = new CollectingDependencyNodeVisitor();
+        MultipleDependencyNodeVisitor mdnv = new MultipleDependencyNodeVisitor(Lists.newArrayList(transitiveCollectingVisitor, getSerializingDependencyNodeVisitor(writer)));
+        FilteringDependencyNodeVisitor visitor = new FilteringDependencyNodeVisitor(mdnv, new DescendantOrSelfDependencyNodeFilter(nodes));
+        rootNode.accept(visitor);
+        getLog().warn(writer.toString());
+        return transitiveCollectingVisitor.getNodes();
     }
 
     private void verifyAndPrepareStructure() throws MojoExecutionException {
@@ -230,7 +295,7 @@ public class AssemblePluginMojo extends AbstractMojo {
         return writer.toString();
     }
 
-    public DependencyNodeVisitor getSerializingDependencyNodeVisitor(Writer writer) {
+    public SerializingDependencyNodeVisitor getSerializingDependencyNodeVisitor(Writer writer) {
         return new SerializingDependencyNodeVisitor(writer, toGraphTokens(tokens));
     }
 
