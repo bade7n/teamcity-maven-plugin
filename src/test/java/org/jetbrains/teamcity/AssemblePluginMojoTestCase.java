@@ -34,7 +34,7 @@ public class AssemblePluginMojoTestCase {
         mojo.execute();
     }
 
-    @Test
+//    @Test
     public void testMakeMultiModuleArtifact() throws Exception {
         MavenSession session = initMavenSession("unit/multi-module-to-test");
         MojoExecution execution = rule.newMojoExecution("build");

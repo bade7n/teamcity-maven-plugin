@@ -2,7 +2,6 @@ package org.jetbrains.teamcity;
 
 import org.apache.maven.cli.CliRequest;
 import org.apache.maven.cli.MavenCli;
-import org.apache.maven.shared.invoker.*;
 import org.codehaus.plexus.classworlds.ClassWorld;
 import org.junit.Test;
 
@@ -12,10 +11,17 @@ import static org.jetbrains.teamcity.AssemblePluginMojoTestCase.getTestDir;
 
 public class AssemblePluginMojoInvokerTest {
     @Test
-    public void testAnotherMultiModule() throws MavenInvocationException {
-        ClassWorld classWorld = new ClassWorld("plexus.core", Thread.currentThread().getContextClassLoader());
-        CliRequest cliRequest = new CliRequest(new String[] { "package", "teamcity:build"}, classWorld);
-        int main = new MavenCli().doMain(cliRequest);
+    public void testAnotherMultiModule() {
+//        ClassWorld classWorld = new ClassWorld("plexus.core", Thread.currentThread().getContextClassLoader());
+//        CliRequest cliRequest = new CliRequest(new String[] { "package", "teamcity:build"}, classWorld);
+        MavenCli cli = new MavenCli();
+        System.setProperty("maven.multiModuleProjectDirectory", getTestDir("unit/multi-module-to-test").getAbsolutePath());
+        getClass().getResource("AssemblePluginMojo.class");
+        int result = cli.doMain(new String[]{"package", "teamcity:build"},
+                getTestDir("unit/multi-module-to-test").getAbsolutePath(),
+                null, null);
+        System.out.println("some result");
+//        int main = new MavenCli().doMain(cliRequest);
 
 //        InvocationRequest request = new DefaultInvocationRequest();
 //        request.setPomFile(getTestDir("unit/multi-module-to-test/pom.xml"));
