@@ -138,6 +138,7 @@ public class AssemblePluginMojo extends AbstractMojo {
 
     @Override
     public void execute() throws MojoExecutionException, MojoFailureException {
+        getLog().warn("TeamCityAssemble start");
         verifyAndPrepareStructure();
         if (agent != null && !agent.isBlank())
             buildAgentPlugin(agent);
@@ -154,7 +155,7 @@ public class AssemblePluginMojo extends AbstractMojo {
                     new DefaultProjectBuildingRequest(session.getProjectBuildingRequest());
             buildingRequest.setProject(project);
             String dependencyTreeString;
-            if (verbose) {
+            if (verbose || true) {
                 rootNode = dependencyCollectorBuilder.collectDependencyGraph(buildingRequest, artifactFilter);
                 dependencyTreeString = serializeDependencyTree(rootNode);
             } else {
@@ -163,7 +164,7 @@ public class AssemblePluginMojo extends AbstractMojo {
                 rootNode = dependencyGraphBuilder.buildDependencyGraph(buildingRequest, artifactFilter);
                 dependencyTreeString = serializeDependencyTree(rootNode);
             }
-            getLog().warn(dependencyTreeString);
+            getLog().warn("Dependency Tree:\n"+dependencyTreeString);
         } catch (DependencyGraphBuilderException | DependencyCollectorBuilderException exception) {
             throw new MojoExecutionException("Cannot build project dependency graph", exception);
         }
