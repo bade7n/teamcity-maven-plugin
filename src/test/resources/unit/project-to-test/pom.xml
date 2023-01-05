@@ -33,7 +33,7 @@
                 <artifactId>teamcity-maven-plugin</artifactId>
                 <version>1.1-SNAPSHOT</version>
                 <configuration>
-                    <agentExcludes>commons-codec</agentExcludes>
+                    <agentExclusions>commons-codec</agentExclusions>
                     <agent>commons-beanutils:commons-beanutils-core:*:*</agent>
                     <server>*</server>
                 </configuration>

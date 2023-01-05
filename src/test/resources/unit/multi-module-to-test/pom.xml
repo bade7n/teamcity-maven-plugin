@@ -6,18 +6,19 @@
     <artifactId>multi-module-to-test</artifactId>
     <version>1.1-SNAPSHOT</version>
     <packaging>pom</packaging>
-    <name>Test</name>
+    <name>multi-module-to-test</name>
 
     <modules>
         <module>moduleA</module>
         <module>moduleB</module>
+        <module>moduleTC</module>
     </modules>
 
     <dependencies>
         <dependency>
             <groupId>jb.int</groupId>
             <artifactId>moduleA</artifactId>
-            <version>1.0-SNAPSHOT</version>
+            <version>1.1-SNAPSHOT</version>
         </dependency>
         <dependency>
             <groupId>commons-beanutils</groupId>
@@ -44,8 +45,6 @@
                 <artifactId>teamcity-maven-plugin</artifactId>
                 <version>1.1-SNAPSHOT</version>
                 <configuration>
-                    <agentExcludes>commons-codec</agentExcludes>
-                    <serverExcludes>commons-codec</serverExcludes>
                     <agent>:moduleA:*:*</agent>
                     <server>:moduleB:*:*</server>
                 </configuration>

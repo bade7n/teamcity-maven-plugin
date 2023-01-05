@@ -41,23 +41,26 @@ public class DescendantOrSelfDependencyNodeFilter
      * The list of nodes that this filter accepts ancestors-or-self of.
      */
     private final List<DependencyNode> descendantNodes;
+    private final DependencyNodeFilter exclusionFilter;
 
     // constructors -----------------------------------------------------------
 
-    public DescendantOrSelfDependencyNodeFilter( DependencyNode descendantNode )
+    public DescendantOrSelfDependencyNodeFilter(DependencyNode descendantNode, DependencyNodeFilter exclusionFilter)
     {
-        this( Collections.singletonList( descendantNode ) );
+        this( Collections.singletonList( descendantNode ), exclusionFilter);
     }
 
     /**
      * Creates a dependency node filter that only accepts nodes that are ancestors of, or equal to, the specified list
      * of nodes.
-     * 
+     *
      * @param descendantNodes the list of nodes to accept ancestors-or-self of
+     * @param exclusionFilter
      */
-    public DescendantOrSelfDependencyNodeFilter( List<DependencyNode> descendantNodes )
+    public DescendantOrSelfDependencyNodeFilter(List<DependencyNode> descendantNodes, DependencyNodeFilter exclusionFilter)
     {
         this.descendantNodes = descendantNodes;
+        this.exclusionFilter = exclusionFilter;
     }
 
     // DependencyNodeFilter methods -------------------------------------------
@@ -68,11 +71,11 @@ public class DescendantOrSelfDependencyNodeFilter
     @Override
     public boolean accept( DependencyNode node )
     {
-        for ( DependencyNode descendantNode : descendantNodes )
-        {
-            if ( isDescendantOrSelf( node, descendantNode ) )
-            {
-                return true;
+        if (exclusionFilter.accept(node)) {
+            for (DependencyNode descendantNode : descendantNodes) {
+                if (isDescendantOrSelf(node, descendantNode)) {
+                    return true;
+                }
             }
         }
 

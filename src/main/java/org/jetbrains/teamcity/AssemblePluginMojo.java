@@ -2,6 +2,7 @@ package org.jetbrains.teamcity;
 
 import org.apache.maven.artifact.Artifact;
 import org.apache.maven.artifact.repository.ArtifactRepository;
+import org.apache.maven.artifact.resolver.filter.AndArtifactFilter;
 import org.apache.maven.artifact.resolver.filter.ArtifactFilter;
 import org.apache.maven.execution.MavenSession;
 import org.apache.maven.plugin.*;
@@ -13,14 +14,13 @@ import org.apache.maven.project.DefaultProjectBuildingRequest;
 import org.apache.maven.project.MavenProject;
 import org.apache.maven.project.MavenProjectHelper;
 import org.apache.maven.project.ProjectBuildingRequest;
-import org.apache.maven.shared.artifact.filter.ScopeArtifactFilter;
-import org.apache.maven.shared.artifact.filter.StrictPatternExcludesArtifactFilter;
-import org.apache.maven.shared.artifact.filter.StrictPatternIncludesArtifactFilter;
+import org.apache.maven.shared.artifact.filter.*;
 import org.apache.maven.shared.dependency.graph.*;
 import org.apache.maven.shared.dependency.graph.filter.AncestorOrSelfDependencyNodeFilter;
 import org.apache.maven.shared.dependency.graph.filter.AndDependencyNodeFilter;
 import org.apache.maven.shared.dependency.graph.filter.ArtifactDependencyNodeFilter;
 import org.apache.maven.shared.dependency.graph.filter.DependencyNodeFilter;
+import org.apache.maven.shared.dependency.graph.internal.ConflictData;
 import org.apache.maven.shared.dependency.graph.traversal.*;
 import org.apache.velocity.Template;
 import org.apache.velocity.VelocityContext;
@@ -36,6 +36,7 @@ import org.eclipse.aether.resolution.ArtifactResolutionException;
 import org.eclipse.aether.resolution.ArtifactResult;
 
 import java.io.*;
+import java.lang.reflect.Field;
 import java.net.URI;
 import java.nio.file.*;
 import java.util.*;
@@ -142,6 +143,9 @@ public class AssemblePluginMojo extends AbstractMojo {
     @Parameter(defaultValue = "false", property = "failOnMissingAgentDescriptor")
     private boolean failOnMissingAgentDescriptor;
 
+    @Parameter(defaultValue = "true", property = "failOnMissingDependencies")
+    private boolean failOnMissingDependencies;
+
     @Parameter(defaultValue = "false", property = "useSeparateClassloader")
     private boolean useSeparateClassloader;
 
@@ -154,11 +158,11 @@ public class AssemblePluginMojo extends AbstractMojo {
     @Parameter(property = "pluginDependencies")
     private List<String> pluginDependencies;
 
-    @Parameter(defaultValue = "org.jetbrains.teamcity", property = "agentExcludes")
-    private List<String> agentExcludes;
+    @Parameter(defaultValue = "org.jetbrains.teamcity", property = "agentExclusions")
+    private List<String> agentExclusions;
 
-    @Parameter(defaultValue = "org.jetbrains.teamcity", property = "serverExcludes")
-    private List<String> serverExcludes;
+    @Parameter(defaultValue = "org.jetbrains.teamcity", property = "serverExclusions")
+    private List<String> serverExclusions;
 
     private Path pluginRoot;
     private Path agentPath;
@@ -177,7 +181,11 @@ public class AssemblePluginMojo extends AbstractMojo {
             throw new MojoFailureException(e);
         }
         Path plugin = zipIt();
-        projectHelper.attachArtifact(project, plugin.toFile(), "teamcity-plugin");
+        projectHelper.attachArtifact(project, "zip", "teamcity-plugin", plugin.toFile());
+    }
+
+    public List<Artifact> getAttachedArtifact() {
+        return project.getAttachedArtifacts();
     }
 
     private Path zipIt() throws MojoFailureException {
@@ -221,19 +229,11 @@ public class AssemblePluginMojo extends AbstractMojo {
             ProjectBuildingRequest buildingRequest =
                     new DefaultProjectBuildingRequest(session.getProjectBuildingRequest());
             buildingRequest.setProject(project);
-            String dependencyTreeString;
-//            if (verbose) {
-                rootNode = dependencyCollectorBuilder.collectDependencyGraph(buildingRequest, artifactFilter);
-                dependencyTreeString = serializeDependencyTree(rootNode);
-//            } else {
-//                // non-verbose mode use dependency graph component, which gives consistent results with Maven version
-//                // running
-//                rootNode = dependencyGraphBuilder.buildDependencyGraph(buildingRequest, artifactFilter);
-//                dependencyTreeString = serializeDependencyTree(rootNode);
-//            }
+
+            rootNode = dependencyCollectorBuilder.collectDependencyGraph(buildingRequest, artifactFilter);
+            String dependencyTreeString = serializeDependencyTree(rootNode);
             getLog().warn("Dependency Tree:\n" + dependencyTreeString);
-//        } catch (DependencyGraphBuilderException | DependencyCollectorBuilderException exception) {
-        } catch (DependencyCollectorBuilderException exception) {
+        } catch (DependencyCollectorBuilderException  exception) {
             throw new MojoExecutionException("Cannot build project dependency graph", exception);
         }
 
@@ -275,19 +275,30 @@ public class AssemblePluginMojo extends AbstractMojo {
     private void buildServerPlugin(String serverSpec) throws MojoExecutionException {
         DependencyNode rootNode = findRootNode();
         Path serverPath = createDir(pluginRoot.resolve("server"));
-        copyTransitiveDependenciesInto(rootNode, serverSpec, serverPath);
+        copyTransitiveDependenciesInto(rootNode, serverSpec, serverPath, serverExclusions);
     }
 
-    private void copyTransitiveDependenciesInto(DependencyNode rootNode, String serverSpec, Path toPath) throws MojoExecutionException {
-        List<DependencyNode> nodes = getDependencyNodeList(rootNode, serverSpec);
+    private void copyTransitiveDependenciesInto(DependencyNode rootNode, String spec, Path toPath, List<String> excludes) throws MojoExecutionException {
+        List<DependencyNode> nodes = getDependencyNodeList(rootNode, spec, excludes);
+        List<Path> destinations = new ArrayList<>();
         for (DependencyNode node : nodes) {
             File source = resolve(node.getArtifact());
             Path destination = toPath.resolve(source.getName());
+            destinations.add(destination);
             try {
                 internalCopy(source, destination, isReactorProject(node));
             } catch (IOException e) {
                 getLog().warn("Error while copying " + source + " to " + destination, e);
             }
+        }
+        try {
+            List<Path> existingFiles = Files.walk(toPath).filter(it -> !it.equals(toPath)).filter(it -> !destinations.contains(it)).collect(Collectors.toList());
+            if (!existingFiles.isEmpty()) {
+                getLog().warn("Found extra files in " + toPath + " removing (" + existingFiles + ")");
+                existingFiles.forEach(it -> it.toFile().delete());
+            }
+        } catch (IOException e) {
+            throw new RuntimeException(e);
         }
     }
 
@@ -314,7 +325,7 @@ public class AssemblePluginMojo extends AbstractMojo {
          * |-server
          * |-teamcity-plugin.xml
          */
-        copyTransitiveDependenciesInto(rootNode, agentSpec, agentPath);
+        copyTransitiveDependenciesInto(rootNode, agentSpec, agentPath, agentExclusions);
     }
 
     private void internalCopy(File source, Path destination, boolean isReactorProject) throws IOException {
@@ -323,6 +334,10 @@ public class AssemblePluginMojo extends AbstractMojo {
                 Files.copy(source.toPath(), destination);
             }
         } catch (NoSuchFileException e) {
+            if (failOnMissingDependencies)
+                getLog().error("Can't find dependency to add to plugin " + source);
+            else
+                destination.toFile().createNewFile();
             getLog().warn("NoSuchFileException: " + e.getMessage());
         } catch (IOException e) {
             getLog().warn(e);
@@ -342,24 +357,72 @@ public class AssemblePluginMojo extends AbstractMojo {
         }}.stream();
     }
 
-    private List<DependencyNode> getDependencyNodeList(DependencyNode rootNode, String spec) {
+    private List<DependencyNode> getDependencyNodeList(DependencyNode rootNode, String spec, List<String> exclusions) {
         List<DependencyNode> nodes;
+        // looking for the nodes specified by user
         if (Objects.equals("*", spec) || spec == null || spec.isBlank()) {
             nodes = Collections.singletonList(rootNode);
         } else {
             List<String> patterns = Arrays.asList(spec.split(","));
-            CollectingDependencyNodeVisitor collectingVisitor = new CollectingDependencyNodeVisitor();
-            DependencyNodeVisitor firstPassVisitor = new FilteringDependencyNodeVisitor(collectingVisitor, new ArtifactDependencyNodeFilter(new StrictPatternIncludesArtifactFilter(patterns)));
-            rootNode.accept(firstPassVisitor);
-            nodes = collectingVisitor.getNodes();
+            nodes = collectNodes(rootNode, new StrictPatternIncludesArtifactFilter(patterns));
         }
+        // getting transitive dependencies excluding ones specified in exclusions filter. Not to include teamcity-core by mistake for example.
         StringWriter writer = new StringWriter();
         CollectingDependencyNodeVisitor transitiveCollectingVisitor = new CollectingDependencyNodeVisitor();
         MultipleDependencyNodeVisitor mdnv = new MultipleDependencyNodeVisitor(Arrays.asList(transitiveCollectingVisitor, getSerializingDependencyNodeVisitor(writer)));
-        FilteringDependencyNodeVisitor visitor = new FilteringDependencyNodeVisitor(mdnv, new DescendantOrSelfDependencyNodeFilter(nodes));
-        rootNode.accept(visitor);
+        DependencyNodeFilter exclusionFilter = new ArtifactDependencyNodeFilter(new StrictPatternExcludesArtifactFilter(exclusions));
+        SkipFilteringDependencyNodeVisitor visitor = new SkipFilteringDependencyNodeVisitor(mdnv, exclusionFilter);
+        nodes.forEach(it -> it.accept(visitor));
         getLog().info("Dependencies according to spec " + spec + ":\n"  + writer);
-        return transitiveCollectingVisitor.getNodes();
+        List<DependencyNode> nodes1 = transitiveCollectingVisitor.getNodes();
+        // now conflicted dependencies might be in list, need to find them and resolve to the right version
+        List<DependencyNode> result = new ArrayList<>();
+        for (DependencyNode node: nodes1) {
+            ConflictData cd = getPrivateField(node);
+            if (cd != null && cd.getWinnerVersion() != null) {
+                List<DependencyNode> substitutions = findSubstitutions(rootNode, node, cd.getWinnerVersion());
+                CollectingDependencyNodeVisitor collector = new CollectingDependencyNodeVisitor();
+                substitutions.forEach(it -> it.accept(collector));
+                result.addAll(collector.getNodes());
+            } else {
+                result.add(node);
+            }
+        }
+        return result;
+    }
+
+    private List<DependencyNode> findSubstitutions(DependencyNode rootNode, DependencyNode node, String winnerVersion) {
+        Artifact a = node.getArtifact();
+        StringJoiner sj = new StringJoiner(":");
+        sj.add(a.getGroupId());
+        sj.add(a.getArtifactId());
+        sj.add(a.getType());
+        sj.add(winnerVersion);
+
+        StrictPatternIncludesArtifactFilter filter = new StrictPatternIncludesArtifactFilter(Collections.singletonList(sj.toString()));
+        AndDependencyNodeFilter nodeFilter = new AndDependencyNodeFilter(new ArtifactDependencyNodeFilter(filter), node1 -> node1 != node);
+        CollectingDependencyNodeVisitor collector = new CollectingDependencyNodeVisitor();
+        rootNode.accept(new FilteringDependencyNodeVisitor(collector, nodeFilter));
+        return collector.getNodes();
+    }
+
+    private ConflictData getPrivateField(DependencyNode node) {
+        try {
+            Field f = node.getClass().getDeclaredField("data");
+            f.setAccessible(true);
+            Object o = f.get(node);
+            return (ConflictData) o;
+        } catch (NoSuchFieldException | IllegalAccessException e) {
+            return null;
+        }
+    }
+
+    private List<DependencyNode> collectNodes(DependencyNode rootNode, ArtifactFilter artifactFilter) {
+        CollectingDependencyNodeVisitor collectingVisitor = new CollectingDependencyNodeVisitor();
+        DependencyNodeVisitor firstPassVisitor = new FilteringDependencyNodeVisitor(collectingVisitor,
+                new ArtifactDependencyNodeFilter(artifactFilter));
+        rootNode.accept(firstPassVisitor);
+        return collectingVisitor.getNodes();
     }
 
     private void verifyAndPrepareStructure() throws MojoExecutionException, IOException {
@@ -418,12 +481,12 @@ public class AssemblePluginMojo extends AbstractMojo {
 
         if (filter != null) {
             CollectingDependencyNodeVisitor collectingVisitor = new CollectingDependencyNodeVisitor();
-            DependencyNodeVisitor firstPassVisitor = new FilteringDependencyNodeVisitor(collectingVisitor, filter);
+            DependencyNodeVisitor firstPassVisitor = new SkipFilteringDependencyNodeVisitor(collectingVisitor, filter);
             theRootNode.accept(firstPassVisitor);
 
             DependencyNodeFilter secondPassFilter =
                     new AncestorOrSelfDependencyNodeFilter(collectingVisitor.getNodes());
-            visitor = new FilteringDependencyNodeVisitor(visitor, secondPassFilter);
+            visitor = new SkipFilteringDependencyNodeVisitor(visitor, secondPassFilter);
         }
 
         theRootNode.accept(visitor);
@@ -493,5 +556,13 @@ public class AssemblePluginMojo extends AbstractMojo {
 
     public String getPluginName() {
         return pluginName;
+    }
+
+    public Path getAgentPath() {
+        return agentPath;
+    }
+
+    public void setFailOnMissingDependencies(boolean b) {
+        this.failOnMissingDependencies = b;
     }
 }

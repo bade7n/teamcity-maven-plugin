@@ -15,34 +15,45 @@ import org.eclipse.aether.DefaultRepositorySystemSession;
 import org.eclipse.aether.artifact.Artifact;
 import org.eclipse.aether.internal.impl.SimpleLocalRepositoryManagerFactory;
 import org.eclipse.aether.repository.*;
-import org.eclipse.aether.util.artifact.ArtifactIdUtils;
+import org.junit.Assert;
 import org.junit.Rule;
 import org.junit.Test;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.List;
-import java.util.Optional;
+import java.util.*;
 import java.util.stream.Collectors;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipFile;
 
 public class AssemblePluginMojoTestCase {
     @Rule
     public MojoRule rule = new MojoRule();
 
     @Test
-    public void testSimple() {
-        System.out.println(1);
-    }
-
-    @Test
     public void testMakeSimpleArtifact() throws Exception {
         MavenSession session = initMavenSession("unit/project-to-test");
         MojoExecution execution = rule.newMojoExecution("build");
         AssemblePluginMojo mojo = (AssemblePluginMojo) rule.lookupConfiguredMojo(session, execution);
+        mojo.setFailOnMissingDependencies(false);
         mojo.execute();
+        String sb = getTestResult(mojo);
+        Assert.assertEquals("""
+                       AGENT:
+                       commons-beanutils-core-1.8.3.jar
+                       commons-logging-1.1.1.jar
+                       PLUGIN:
+                       agent/
+                       agent/project-to-test.zip
+                       server/
+                       server/commons-beanutils-core-1.8.3.jar
+                       server/commons-codec-1.15.jar
+                       server/commons-logging-1.1.1.jar
+                       server/project-to-test-1.1-SNAPSHOT.jar
+                       teamcity-plugin.xml""", sb);
+
     }
 
     @Test
@@ -50,7 +61,36 @@ public class AssemblePluginMojoTestCase {
         MavenSession session = initMavenSession("unit/multi-module-to-test");
         MojoExecution execution = rule.newMojoExecution("build");
         AssemblePluginMojo mojo = (AssemblePluginMojo) rule.lookupConfiguredMojo(session, execution);
+        mojo.setFailOnMissingDependencies(false);
         mojo.execute();
+        String sb = getTestResult(mojo);
+        Assert.assertEquals("""
+                       AGENT:
+                       commons-beanutils-core-1.8.3.jar
+                       commons-logging-1.1.1.jar
+                       moduleA-1.1-SNAPSHOT.jar
+                       moduleB-1.1-SNAPSHOT.jar
+                       PLUGIN:
+                       agent/
+                       agent/multi-module-to-test.zip
+                       server/
+                       server/moduleB-1.1-SNAPSHOT.jar
+                       teamcity-plugin.xml""", sb);
+    }
+
+    private String getTestResult(AssemblePluginMojo mojo) throws IOException {
+        StringJoiner sb = new StringJoiner("\n");
+        sb.add("AGENT:");
+        Files.list(mojo.getAgentPath()).sorted().forEachOrdered(it -> sb.add(mojo.getAgentPath().relativize(it).toString()));
+        sb.add("PLUGIN:");
+        org.apache.maven.artifact.Artifact a = mojo.getAttachedArtifact().get(0);
+        try (ZipFile zipFile = new ZipFile(a.getFile())) {
+            zipFile.stream()
+                    .map(ZipEntry::getName)
+                    .sorted()
+                    .forEach(sb::add);
+        }
+        return sb.toString();
     }
 
     private MavenSession initMavenSession(String projectBase) throws Exception {
