@@ -140,7 +140,7 @@
   </build>
 
   <scm>
-    <connection>scm:git:ssh://git@github.com:bade7n/teamcity-maven-plugin.git</connection>
+    <connection>scm:git:ssh://git@github.com/bade7n/teamcity-maven-plugin.git</connection>
     <url>https://github.com/bade7n/teamcity-maven-plugin</url>
   </scm>
 
