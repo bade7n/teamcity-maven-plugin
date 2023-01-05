@@ -46,8 +46,7 @@
                 <configuration>
                     <excludeGroupId>commons-codec</excludeGroupId>
                     <agent>:moduleA:*:*</agent>
-                    <server>*</server>
-                    <unitTest>true</unitTest>
+                    <server>:moduleB:*:*</server>
                 </configuration>
                 <executions>
                     <execution>

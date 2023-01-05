@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<teamcity-plugin xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                 xsi:noNamespaceSchemaLocation="urn:schemas-jetbrains-com:teamcity-plugin-v1-xml">
+    <info>
+        <name>${mojo.pluginName}</name>
+        <display-name>${project.name}</display-name>
+        <version>${project.version}</version>
+#if( $project.organization )
+        <vendor>
+            <name>$!{project.organization.name}</name>
+            <url>$!{project.organization.url}</url>
+        </vendor>
+#end
+    </info>
+    <deployment use-separate-classloader="${mojo.useSeparateClassloader}" node-responsibilities-aware="${mojo.nodeResponsibilitiesAware}"/>
+    #if( $mojo.pluginDependencies )
+    <dependencies>
+        #foreach( $dependency in $mojo.pluginDependencies )
+        <plugin name="${dependency}"/>
+        #end
+    </dependencies>
+    #end
+</teamcity-plugin>

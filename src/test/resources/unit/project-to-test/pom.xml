@@ -36,7 +36,6 @@
                     <excludeGroupId>commons-codec</excludeGroupId>
                     <agent>commons-beanutils:commons-beanutils-core:*:*</agent>
                     <server>*</server>
-                    <unitTest>true</unitTest>
                 </configuration>
                 <executions>
                     <execution>

@@ -4,6 +4,7 @@ import org.apache.maven.artifact.Artifact;
 import org.apache.maven.artifact.repository.ArtifactRepository;
 import org.apache.maven.artifact.resolver.filter.ArtifactFilter;
 import org.apache.maven.execution.MavenSession;
+import org.apache.maven.model.Organization;
 import org.apache.maven.plugin.*;
 import org.apache.maven.plugins.annotations.Component;
 import org.apache.maven.plugins.annotations.Mojo;
@@ -21,6 +22,12 @@ import org.apache.maven.shared.dependency.graph.filter.AndDependencyNodeFilter;
 import org.apache.maven.shared.dependency.graph.filter.ArtifactDependencyNodeFilter;
 import org.apache.maven.shared.dependency.graph.filter.DependencyNodeFilter;
 import org.apache.maven.shared.dependency.graph.traversal.*;
+import org.apache.velocity.Template;
+import org.apache.velocity.VelocityContext;
+import org.apache.velocity.app.Velocity;
+import org.apache.velocity.app.VelocityEngine;
+import org.apache.velocity.runtime.RuntimeConstants;
+import org.apache.velocity.runtime.resource.loader.ClasspathResourceLoader;
 import org.eclipse.aether.RepositorySystem;
 import org.eclipse.aether.RepositorySystemSession;
 import org.eclipse.aether.artifact.DefaultArtifact;
@@ -29,15 +36,15 @@ import org.eclipse.aether.resolution.ArtifactRequest;
 import org.eclipse.aether.resolution.ArtifactResolutionException;
 import org.eclipse.aether.resolution.ArtifactResult;
 
-import java.io.File;
-import java.io.StringWriter;
-import java.io.Writer;
-import java.nio.file.Path;
+import java.io.*;
+import java.net.URI;
+import java.nio.file.*;
 import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static java.nio.file.Files.exists;
+import static java.nio.file.StandardCopyOption.REPLACE_EXISTING;
 import static org.apache.maven.artifact.Artifact.SCOPE_RUNTIME;
 
 @Mojo(name = "build", aggregator = true, requiresProject = true, requiresDependencyResolution = ResolutionScope.TEST, requiresDependencyCollection = ResolutionScope.TEST)
@@ -92,8 +99,8 @@ public class AssemblePluginMojo extends AbstractMojo {
     /**
      * Final name of the zip file. Defaults to the build final name attribute.
      */
-    @Parameter(defaultValue = "${project.build.finalName}", property = "outputName")
-    private String zipName;
+    @Parameter(defaultValue = "${project.artifactId}", property = "pluginName")
+    private String pluginName;
 
     @Parameter(defaultValue = "org.jetbrains.teamcity", property = "excludeGroupId")
     private String excludeGroupId;
@@ -122,12 +129,6 @@ public class AssemblePluginMojo extends AbstractMojo {
     @Parameter(property = "excludes")
     private String excludes;
 
-    @Parameter(property = "verbose", defaultValue = "false")
-    private boolean verbose;
-
-    @Parameter(property = "unitTest", defaultValue = "${unitTest}")
-    private boolean unitTest;
-
     @Parameter(defaultValue = "${localRepository}", readonly = true, required = true)
     private ArtifactRepository local;
     @Component
@@ -136,15 +137,74 @@ public class AssemblePluginMojo extends AbstractMojo {
     @Parameter(defaultValue = "${project.remoteProjectRepositories}", readonly = true, required = true)
     private List<RemoteRepository> repositories;
 
+    @Parameter(defaultValue = "false", property = "failOnMissingServerDescriptor")
+    private boolean failOnMissingServerDescriptor;
+
+    @Parameter(defaultValue = "false", property = "failOnMissingAgentDescriptor")
+    private boolean failOnMissingAgentDescriptor;
+
+    @Parameter(defaultValue = "false", property = "useSeparateClassloader")
+    private boolean useSeparateClassloader;
+
+    @Parameter(defaultValue = "false", property = "nodeResponsibilitiesAware")
+    private boolean nodeResponsibilitiesAware;
+
+    /**
+     *
+     */
+    @Parameter(property = "pluginDependencies")
+    private List<String> pluginDependencies;
+
+    private Path pluginRoot;
+    private Path agentPath;
+    private List<Artifact> reactorProjectList;
+
     @Override
     public void execute() throws MojoExecutionException, MojoFailureException {
         getLog().warn("TeamCityAssemble start");
-        verifyAndPrepareStructure();
-        if (agent != null && !agent.isBlank())
-            buildAgentPlugin(agent);
-        if (server != null && !server.isBlank())
-            buildServerPlugin(server);
-        project.getAttachedArtifacts();
+        try {
+            verifyAndPrepareStructure();
+            if (agent != null && !agent.isBlank())
+                buildAgentPlugin(agent);
+            if (server != null && !server.isBlank())
+                buildServerPlugin(server);
+        } catch (IOException e) {
+            throw new MojoFailureException(e);
+        }
+        zipIt();
+    }
+
+    private void zipIt() throws MojoFailureException {
+        zipFile(agentPath, pluginRoot.resolve("agent"), pluginName + ".zip");
+        zipFile(pluginRoot, outputDirectory.toPath(), pluginName + ".zip");
+    }
+
+    private void zipFile(Path source, Path baseDir, String zipName) throws MojoFailureException {
+        try {
+            Path agentZipPath = Files.createDirectories(baseDir).resolve(zipName);
+            if (agentZipPath.toFile().exists()) {
+                boolean deleted = agentZipPath.toFile().delete();
+                if (!deleted) {
+                    getLog().warn("Failed to delete " + agentZipPath);
+                }
+            }
+            URI uri = URI.create("jar:file:" + agentZipPath);
+            try (FileSystem zipfs = FileSystems.newFileSystem(uri, Map.of("create", "true"))) {
+                List<Path> filesInAgentZip = Files.walk(source).collect(Collectors.toList());
+                for (Path entry : filesInAgentZip) {
+                    Path relativePath = zipfs.getPath(source.relativize(entry).toString());
+                    try {
+                        if (!relativePath.toString().isBlank())
+                            Files.copy(entry, relativePath);
+                    } catch (IOException e) {
+                        getLog().warn("Can't zip file " + entry + " to " + relativePath, e);
+                    }
+                }
+            }
+        } catch (IOException e) {
+            throw new MojoFailureException(e);
+        }
+
     }
 
     private DependencyNode findRootNode() throws MojoExecutionException {
@@ -155,17 +215,18 @@ public class AssemblePluginMojo extends AbstractMojo {
                     new DefaultProjectBuildingRequest(session.getProjectBuildingRequest());
             buildingRequest.setProject(project);
             String dependencyTreeString;
-            if (verbose || true) {
+//            if (verbose) {
                 rootNode = dependencyCollectorBuilder.collectDependencyGraph(buildingRequest, artifactFilter);
                 dependencyTreeString = serializeDependencyTree(rootNode);
-            } else {
-                // non-verbose mode use dependency graph component, which gives consistent results with Maven version
-                // running
-                rootNode = dependencyGraphBuilder.buildDependencyGraph(buildingRequest, artifactFilter);
-                dependencyTreeString = serializeDependencyTree(rootNode);
-            }
-            getLog().warn("Dependency Tree:\n"+dependencyTreeString);
-        } catch (DependencyGraphBuilderException | DependencyCollectorBuilderException exception) {
+//            } else {
+//                // non-verbose mode use dependency graph component, which gives consistent results with Maven version
+//                // running
+//                rootNode = dependencyGraphBuilder.buildDependencyGraph(buildingRequest, artifactFilter);
+//                dependencyTreeString = serializeDependencyTree(rootNode);
+//            }
+            getLog().warn("Dependency Tree:\n" + dependencyTreeString);
+//        } catch (DependencyGraphBuilderException | DependencyCollectorBuilderException exception) {
+        } catch (DependencyCollectorBuilderException exception) {
             throw new MojoExecutionException("Cannot build project dependency graph", exception);
         }
 
@@ -173,7 +234,6 @@ public class AssemblePluginMojo extends AbstractMojo {
     }
 
     private File resolve(Artifact unresolvedArtifact) throws MojoExecutionException {
-
         // Here, it becomes messy. We ask Maven to resolve the artifact's location.
         // It may imply downloading it from a remote repository,
         // searching the local repository or looking into the reactor's cache.
@@ -200,38 +260,72 @@ public class AssemblePluginMojo extends AbstractMojo {
         // The file should exists, but we never know.
         File file = resolutionResult.getArtifact().getFile();
         if (file == null || !file.exists()) {
-            getLog().warn("Artifact " + artifactId + " has no attached file. Its content will not be copied in the target model directory.");
+            getLog().warn("Artifact " + artifactId + " has no attached file (" + file + "). Its content will not be copied in the target model directory.");
         }
         return file;
     }
 
-    private void buildServerPlugin(String serverSpec) {
+    private void buildServerPlugin(String serverSpec) throws MojoExecutionException {
+        DependencyNode rootNode = findRootNode();
+        Path serverPath = createDir(pluginRoot.resolve("server"));
+        copyTransitiveDependenciesInto(rootNode, serverSpec, serverPath);
+    }
+
+    private void copyTransitiveDependenciesInto(DependencyNode rootNode, String serverSpec, Path toPath) throws MojoExecutionException {
+        List<DependencyNode> nodes = getDependencyNodeList(rootNode, serverSpec);
+        for (DependencyNode node : nodes) {
+            File source = resolve(node.getArtifact());
+            Path destination = toPath.resolve(source.getName());
+            try {
+                internalCopy(source, destination, isReactorProject(node));
+            } catch (IOException e) {
+                getLog().warn("Error while copying " + source + " to " + destination, e);
+            }
+        }
+    }
+
+    private Path createDir(Path serverUnpacked) {
+        try {
+            return Files.createDirectories(Files.createDirectories(serverUnpacked));
+        } catch (IOException e) {
+            getLog().warn("Error while creation " + serverUnpacked, e);
+            return serverUnpacked;
+        }
     }
 
     public void buildAgentPlugin(String agentSpec) throws MojoExecutionException {
         DependencyNode rootNode = findRootNode();
 
-        File agentOutput = outputDirectory.toPath().resolve("agent").toFile();
+        agentPath  = createDir(outputDirectory.toPath().resolve("teamcity-agent"));
+
         /**
-         * plugin_name/
+         * pluginRoot/
          * |-agent/
          * | |-plugin_name.zip
          * |   |-plugin_name/
          * |     |-dependencies.jar
+         * |-server
          * |-teamcity-plugin.xml
          */
+        copyTransitiveDependenciesInto(rootNode, agentSpec, agentPath);
+    }
 
-        List<DependencyNode> nodes = getDependencyNodeList(rootNode, agentSpec);
-        List<Artifact> reactorProjectList = reactorProjects.stream().flatMap(this::getArtifactList).collect(Collectors.toList());
-        for (DependencyNode node : nodes) {
-            File file = resolve(node.getArtifact());
-            if (reactorProjectList.contains(node.getArtifact())) {
-                System.out.println("Node is reactor dependency " + node.toNodeString());
-            } else {
-                System.out.println("Node is not reactor dependency " + node.toNodeString());
+    private void internalCopy(File source, Path destination, boolean isReactorProject) throws IOException {
+        try {
+            if (!destination.toFile().exists() || isReactorProject || destination.toFile().length() != source.length()) {
+                Files.copy(source.toPath(), destination);
             }
+        } catch (NoSuchFileException e) {
+            getLog().warn("NoSuchFileException: " + e.getMessage());
+        } catch (IOException e) {
+            getLog().warn(e);
+            if (source.exists())
+                Files.copy(source.toPath(), destination, REPLACE_EXISTING);
         }
-        System.out.println(nodes);
+    }
+
+    private boolean isReactorProject(DependencyNode node) {
+        return reactorProjectList.contains(node.getArtifact());
     }
 
     private Stream<Artifact> getArtifactList(MavenProject it) {
@@ -241,12 +335,12 @@ public class AssemblePluginMojo extends AbstractMojo {
         }}.stream();
     }
 
-    private List<DependencyNode> getDependencyNodeList(DependencyNode rootNode, String agentSpec) {
+    private List<DependencyNode> getDependencyNodeList(DependencyNode rootNode, String spec) {
         List<DependencyNode> nodes;
-        if (Objects.equals("*", agentSpec) || agentSpec == null || agentSpec.isBlank()) {
+        if (Objects.equals("*", spec) || spec == null || spec.isBlank()) {
             nodes = Collections.singletonList(rootNode);
         } else {
-            List<String> patterns = Arrays.asList(agentSpec.split(","));
+            List<String> patterns = Arrays.asList(spec.split(","));
             CollectingDependencyNodeVisitor collectingVisitor = new CollectingDependencyNodeVisitor();
             DependencyNodeVisitor firstPassVisitor = new FilteringDependencyNodeVisitor(collectingVisitor, new ArtifactDependencyNodeFilter(new StrictPatternIncludesArtifactFilter(patterns)));
             rootNode.accept(firstPassVisitor);
@@ -257,15 +351,38 @@ public class AssemblePluginMojo extends AbstractMojo {
         MultipleDependencyNodeVisitor mdnv = new MultipleDependencyNodeVisitor(Arrays.asList(transitiveCollectingVisitor, getSerializingDependencyNodeVisitor(writer)));
         FilteringDependencyNodeVisitor visitor = new FilteringDependencyNodeVisitor(mdnv, new DescendantOrSelfDependencyNodeFilter(nodes));
         rootNode.accept(visitor);
-        getLog().warn(writer.toString());
+        getLog().info("Dependencies according to spec " + spec + ":\n"  + writer);
         return transitiveCollectingVisitor.getNodes();
     }
 
-    private void verifyAndPrepareStructure() throws MojoExecutionException {
-        new File(String.valueOf(outputDirectory)).mkdirs();
-        if (!exists(Path.of(pluginDescriptorPath)) && !unitTest)
-            throw new MojoExecutionException(String.format("`pluginDescriptorPath` must point to teamcity plugin descriptor (%s).", pluginDescriptorPath));
+    private void verifyAndPrepareStructure() throws MojoExecutionException, IOException {
+        pluginRoot = Files.createDirectories(outputDirectory.toPath().resolve(pluginName));
+        reactorProjectList = reactorProjects.stream().flatMap(this::getArtifactList).collect(Collectors.toList());
 
+        Path destination = pluginRoot.resolve("teamcity-plugin.xml");
+        if (!exists(Path.of(pluginDescriptorPath))) {
+            if (failOnMissingServerDescriptor)
+                throw new MojoExecutionException(String.format("`pluginDescriptorPath` must point to teamcity plugin descriptor (%s).", pluginDescriptorPath));
+            else {
+                createServerDescriptor(destination);
+            }
+        } else {
+            Files.copy(Path.of(pluginDescriptorPath), destination);
+        }
+    }
+
+    private void createServerDescriptor(Path destination) throws IOException {
+        File serverDescriptor = destination.toFile();
+            try (FileWriter fw = new FileWriter(serverDescriptor)) {
+                VelocityContext context = new VelocityContext();
+                VelocityEngine ve = new VelocityEngine();
+                ve.setProperty(RuntimeConstants.RESOURCE_LOADER, "classpath");
+                ve.setProperty("classpath.resource.loader.class", ClasspathResourceLoader.class.getName());
+                context.put("mojo", this);
+                context.put("project", project);
+                Template template = ve.getTemplate("teamcity-server-plugin.vm");
+                template.merge(context, fw);
+            }
     }
 
     private ArtifactFilter createResolvingArtifactFilter(String scope) {
@@ -353,5 +470,21 @@ public class AssemblePluginMojo extends AbstractMojo {
         }
 
         return filters.isEmpty() ? null : new AndDependencyNodeFilter(filters);
+    }
+
+    public List<String> getPluginDependencies() {
+        return pluginDependencies;
+    }
+
+    public boolean isNodeResponsibilitiesAware() {
+        return nodeResponsibilitiesAware;
+    }
+
+    public boolean isUseSeparateClassloader() {
+        return useSeparateClassloader;
+    }
+
+    public String getPluginName() {
+        return pluginName;
     }
 }
