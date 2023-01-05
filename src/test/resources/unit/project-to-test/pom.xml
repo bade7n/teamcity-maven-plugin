@@ -31,7 +31,7 @@
             <plugin>
                 <groupId>org.jetbrains.teamcity</groupId>
                 <artifactId>teamcity-maven-plugin</artifactId>
-                <version>1.1-SNAPSHOT</version>
+                <version>1.2-SNAPSHOT</version>
                 <configuration>
                     <agentExclusions>commons-codec</agentExclusions>
                     <agent>commons-beanutils:commons-beanutils-core:*:*</agent>
