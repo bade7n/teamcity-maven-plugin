@@ -3,7 +3,7 @@
   <groupId>org.jetbrains.teamcity</groupId>
   <artifactId>teamcity-maven-plugin</artifactId>
   <packaging>maven-plugin</packaging>
-  <version>1.3</version>
+  <version>1.4-SNAPSHOT</version>
   <name>TeamCity Plugin</name>
   <url>http://maven.apache.org</url>
 
@@ -141,7 +141,7 @@
   <scm>
     <connection>scm:git:ssh://git@github.com/bade7n/teamcity-maven-plugin.git</connection>
     <url>https://github.com/bade7n/teamcity-maven-plugin</url>
-    <tag>teamcity-maven-plugin-1.3</tag>
+    <tag>HEAD</tag>
   </scm>
 
   <distributionManagement>
