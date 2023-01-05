@@ -1,0 +1,21 @@
+<component-set>
+    <components>
+        <component>
+            <role>org.apache.maven.lifecycle.Lifecycle</role>
+            <implementation>org.apache.maven.lifecycle.Lifecycle</implementation>
+            <role-hint>teamcity</role-hint>
+            <configuration>
+                <id>teamcity</id>
+                <phases>
+                    <package>
+                        org.jetbrains.teamcity:teamcity-maven-plugin:${project.version}:build
+                    </package>
+                </phases>
+                <default-phases>
+                    <package>
+                        org.jetbrains.teamcity:teamcity-maven-plugin:${project.version}:build
+                    </package>
+                </default-phases>
+            </configuration>
+        </component>
+    </components>
