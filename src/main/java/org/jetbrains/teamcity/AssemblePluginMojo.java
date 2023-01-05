@@ -4,7 +4,6 @@ import org.apache.maven.artifact.Artifact;
 import org.apache.maven.artifact.repository.ArtifactRepository;
 import org.apache.maven.artifact.resolver.filter.ArtifactFilter;
 import org.apache.maven.execution.MavenSession;
-import org.apache.maven.model.Organization;
 import org.apache.maven.plugin.*;
 import org.apache.maven.plugins.annotations.Component;
 import org.apache.maven.plugins.annotations.Mojo;
@@ -12,6 +11,7 @@ import org.apache.maven.plugins.annotations.Parameter;
 import org.apache.maven.plugins.annotations.ResolutionScope;
 import org.apache.maven.project.DefaultProjectBuildingRequest;
 import org.apache.maven.project.MavenProject;
+import org.apache.maven.project.MavenProjectHelper;
 import org.apache.maven.project.ProjectBuildingRequest;
 import org.apache.maven.shared.artifact.filter.ScopeArtifactFilter;
 import org.apache.maven.shared.artifact.filter.StrictPatternExcludesArtifactFilter;
@@ -24,7 +24,6 @@ import org.apache.maven.shared.dependency.graph.filter.DependencyNodeFilter;
 import org.apache.maven.shared.dependency.graph.traversal.*;
 import org.apache.velocity.Template;
 import org.apache.velocity.VelocityContext;
-import org.apache.velocity.app.Velocity;
 import org.apache.velocity.app.VelocityEngine;
 import org.apache.velocity.runtime.RuntimeConstants;
 import org.apache.velocity.runtime.resource.loader.ClasspathResourceLoader;
@@ -102,9 +101,6 @@ public class AssemblePluginMojo extends AbstractMojo {
     @Parameter(defaultValue = "${project.artifactId}", property = "pluginName")
     private String pluginName;
 
-    @Parameter(defaultValue = "org.jetbrains.teamcity", property = "excludeGroupId")
-    private String excludeGroupId;
-
     @Parameter(defaultValue = "", property = "agent")
     private String agent;
 
@@ -119,6 +115,9 @@ public class AssemblePluginMojo extends AbstractMojo {
 
     @Component(hint = "default")
     private DependencyGraphBuilder dependencyGraphBuilder;
+
+    @Component
+    private MavenProjectHelper projectHelper;
 
     @Parameter(property = "tokens", defaultValue = "standard")
     private String tokens;
@@ -155,6 +154,12 @@ public class AssemblePluginMojo extends AbstractMojo {
     @Parameter(property = "pluginDependencies")
     private List<String> pluginDependencies;
 
+    @Parameter(defaultValue = "org.jetbrains.teamcity", property = "agentExcludes")
+    private List<String> agentExcludes;
+
+    @Parameter(defaultValue = "org.jetbrains.teamcity", property = "serverExcludes")
+    private List<String> serverExcludes;
+
     private Path pluginRoot;
     private Path agentPath;
     private List<Artifact> reactorProjectList;
@@ -171,24 +176,26 @@ public class AssemblePluginMojo extends AbstractMojo {
         } catch (IOException e) {
             throw new MojoFailureException(e);
         }
-        zipIt();
+        Path plugin = zipIt();
+        projectHelper.attachArtifact(project, plugin.toFile(), "teamcity-plugin");
     }
 
-    private void zipIt() throws MojoFailureException {
+    private Path zipIt() throws MojoFailureException {
         zipFile(agentPath, pluginRoot.resolve("agent"), pluginName + ".zip");
-        zipFile(pluginRoot, outputDirectory.toPath(), pluginName + ".zip");
+        Path plugin = zipFile(pluginRoot, outputDirectory.toPath(), pluginName + ".zip");
+        return plugin;
     }
 
-    private void zipFile(Path source, Path baseDir, String zipName) throws MojoFailureException {
+    private Path zipFile(Path source, Path baseDir, String zipName) throws MojoFailureException {
         try {
-            Path agentZipPath = Files.createDirectories(baseDir).resolve(zipName);
-            if (agentZipPath.toFile().exists()) {
-                boolean deleted = agentZipPath.toFile().delete();
+            Path zipPath = Files.createDirectories(baseDir).resolve(zipName);
+            if (zipPath.toFile().exists()) {
+                boolean deleted = zipPath.toFile().delete();
                 if (!deleted) {
-                    getLog().warn("Failed to delete " + agentZipPath);
+                    getLog().warn("Failed to delete " + zipPath);
                 }
             }
-            URI uri = URI.create("jar:file:" + agentZipPath);
+            URI uri = URI.create("jar:file:" + zipPath);
             try (FileSystem zipfs = FileSystems.newFileSystem(uri, Map.of("create", "true"))) {
                 List<Path> filesInAgentZip = Files.walk(source).collect(Collectors.toList());
                 for (Path entry : filesInAgentZip) {
@@ -201,10 +208,10 @@ public class AssemblePluginMojo extends AbstractMojo {
                     }
                 }
             }
+            return zipPath;
         } catch (IOException e) {
             throw new MojoFailureException(e);
         }
-
     }
 
     private DependencyNode findRootNode() throws MojoExecutionException {

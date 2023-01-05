@@ -4,7 +4,7 @@
     <modelVersion>4.0.0</modelVersion>
     <groupId>jb.int</groupId>
     <artifactId>multi-module-to-test</artifactId>
-    <version>1.0-SNAPSHOT</version>
+    <version>1.1-SNAPSHOT</version>
     <packaging>pom</packaging>
     <name>Test</name>
 
@@ -44,7 +44,8 @@
                 <artifactId>teamcity-maven-plugin</artifactId>
                 <version>1.1-SNAPSHOT</version>
                 <configuration>
-                    <excludeGroupId>commons-codec</excludeGroupId>
+                    <agentExcludes>commons-codec</agentExcludes>
+                    <serverExcludes>commons-codec</serverExcludes>
                     <agent>:moduleA:*:*</agent>
                     <server>:moduleB:*:*</server>
                 </configuration>
