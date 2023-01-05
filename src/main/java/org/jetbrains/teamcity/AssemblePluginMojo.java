@@ -150,6 +150,8 @@ public class AssemblePluginMojo extends AbstractMojo {
     @Parameter(defaultValue = "false", property = "nodeResponsibilitiesAware")
     private boolean nodeResponsibilitiesAware;
 
+    @Parameter(defaultValue = "false", property = "allowRuntimeReload")
+    private boolean allowRuntimeReload;
     /**
      *
      */
@@ -176,7 +178,8 @@ public class AssemblePluginMojo extends AbstractMojo {
             if (server != null && !server.isBlank())
                 buildServerPlugin(server);
         } catch (IOException e) {
-            throw new MojoFailureException(e);
+            getLog().warn(e);
+            throw new MojoFailureException("Error while assembly execution", e);
         }
         Path plugin = zipIt();
         projectHelper.attachArtifact(project, "zip", "teamcity-plugin", plugin.toFile());
@@ -216,7 +219,8 @@ public class AssemblePluginMojo extends AbstractMojo {
             }
             return zipPath;
         } catch (IOException e) {
-            throw new MojoFailureException(e);
+            getLog().warn(e);
+            throw new MojoFailureException("Error while building " + zipName, e);
         }
     }
 
@@ -435,7 +439,8 @@ public class AssemblePluginMojo extends AbstractMojo {
                 createServerDescriptor(destination);
             }
         } else {
-            Files.copy(Path.of(pluginDescriptorPath), destination);
+            if (!destination.toFile().exists())
+                Files.copy(Path.of(pluginDescriptorPath), destination);
         }
     }
 
@@ -550,6 +555,10 @@ public class AssemblePluginMojo extends AbstractMojo {
 
     public boolean isUseSeparateClassloader() {
         return useSeparateClassloader;
+    }
+
+    public boolean isAllowRuntimeReload() {
+        return allowRuntimeReload;
     }
 
     public String getPluginName() {

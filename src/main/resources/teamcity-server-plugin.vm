@@ -12,7 +12,7 @@
         </vendor>
 #end
     </info>
-    <deployment use-separate-classloader="${mojo.useSeparateClassloader}" node-responsibilities-aware="${mojo.nodeResponsibilitiesAware}"/>
+    <deployment use-separate-classloader="${mojo.useSeparateClassloader}" allow-runtime-reload="${mojo.allowRuntimeReload}" node-responsibilities-aware="${mojo.nodeResponsibilitiesAware}"/>
     #if( $mojo.pluginDependencies )
     <dependencies>
         #foreach( $dependency in $mojo.pluginDependencies )
