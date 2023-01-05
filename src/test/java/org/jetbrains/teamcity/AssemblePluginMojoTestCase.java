@@ -40,19 +40,18 @@ public class AssemblePluginMojoTestCase {
         mojo.setFailOnMissingDependencies(false);
         mojo.execute();
         String sb = getTestResult(mojo);
-        Assert.assertEquals("""
-                       AGENT:
-                       commons-beanutils-core-1.8.3.jar
-                       commons-logging-1.1.1.jar
-                       PLUGIN:
-                       agent/
-                       agent/project-to-test.zip
-                       server/
-                       server/commons-beanutils-core-1.8.3.jar
-                       server/commons-codec-1.15.jar
-                       server/commons-logging-1.1.1.jar
-                       server/project-to-test-1.1-SNAPSHOT.jar
-                       teamcity-plugin.xml""", sb);
+        Assert.assertEquals("AGENT:\n" +
+                "commons-beanutils-core-1.8.3.jar\n" +
+                "commons-logging-1.1.1.jar\n" +
+                "PLUGIN:\n" +
+                "agent/\n" +
+                "agent/project-to-test.zip\n" +
+                "server/\n" +
+                "server/commons-beanutils-core-1.8.3.jar\n" +
+                "server/commons-codec-1.15.jar\n" +
+                "server/commons-logging-1.1.1.jar\n" +
+                "server/project-to-test-1.1-SNAPSHOT.jar\n" +
+                "teamcity-plugin.xml", sb);
 
     }
 
@@ -64,18 +63,17 @@ public class AssemblePluginMojoTestCase {
         mojo.setFailOnMissingDependencies(false);
         mojo.execute();
         String sb = getTestResult(mojo);
-        Assert.assertEquals("""
-                       AGENT:
-                       commons-beanutils-core-1.8.3.jar
-                       commons-logging-1.1.1.jar
-                       moduleA-1.1-SNAPSHOT.jar
-                       moduleB-1.1-SNAPSHOT.jar
-                       PLUGIN:
-                       agent/
-                       agent/multi-module-to-test.zip
-                       server/
-                       server/moduleB-1.1-SNAPSHOT.jar
-                       teamcity-plugin.xml""", sb);
+        Assert.assertEquals("AGENT:\n" +
+                "commons-beanutils-core-1.8.3.jar\n" +
+                "commons-logging-1.1.1.jar\n" +
+                "moduleA-1.1-SNAPSHOT.jar\n" +
+                "moduleB-1.1-SNAPSHOT.jar\n" +
+                "PLUGIN:\n" +
+                "agent/\n" +
+                "agent/multi-module-to-test.zip\n" +
+                "server/\n" +
+                "server/moduleB-1.1-SNAPSHOT.jar\n" +
+                "teamcity-plugin.xml", sb);
     }
 
     private String getTestResult(AssemblePluginMojo mojo) throws IOException {
