@@ -413,7 +413,8 @@ public class AssemblePluginMojo extends AbstractMojo {
             if (cd != null && cd.getWinnerVersion() != null) {
                 List<DependencyNode> substitutions = findSubstitutions(rootNode, node, cd.getWinnerVersion());
                 CollectingDependencyNodeVisitor collector = new CollectingDependencyNodeVisitor();
-                substitutions.forEach(it -> it.accept(collector));
+                SkipFilteringDependencyNodeVisitor visitor1 = new SkipFilteringDependencyNodeVisitor(collector, exclusionFilter);
+                substitutions.forEach(it -> it.accept(visitor1));
                 result.addAll(collector.getNodes());
             } else {
                 result.add(node);
