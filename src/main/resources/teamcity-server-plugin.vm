@@ -13,10 +13,13 @@
 #end
     </info>
     <deployment use-separate-classloader="${mojo.useSeparateClassloader}" allow-runtime-reload="${mojo.allowRuntimeReload}" node-responsibilities-aware="${mojo.nodeResponsibilitiesAware}"/>
-    #if( $mojo.pluginDependencies )
+    #if( $mojo.pluginDependencies || $mojo.toolDependencies)
     <dependencies>
         #foreach( $dependency in $mojo.pluginDependencies )
         <plugin name="${dependency}"/>
+        #end
+        #foreach( $dependency in $mojo.toolDependencies )
+            <tool name="${dependency}"/>
         #end
     </dependencies>
     #end

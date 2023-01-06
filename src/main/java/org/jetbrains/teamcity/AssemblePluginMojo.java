@@ -158,6 +158,9 @@ public class AssemblePluginMojo extends AbstractMojo {
     @Parameter(property = "pluginDependencies")
     private List<String> pluginDependencies;
 
+    @Parameter(property = "toolDependencies")
+    private List<String> toolDependencies;
+
     @Parameter(defaultValue = "org.jetbrains.teamcity", property = "agentExclusions")
     private List<String> agentExclusions;
 
@@ -555,6 +558,10 @@ public class AssemblePluginMojo extends AbstractMojo {
 
     public List<String> getPluginDependencies() {
         return pluginDependencies;
+    }
+
+    public List<String> getToolDependencies() {
+        return toolDependencies;
     }
 
     public boolean isNodeResponsibilitiesAware() {
