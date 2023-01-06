@@ -2,7 +2,6 @@ package org.jetbrains.teamcity;
 
 import org.apache.maven.artifact.Artifact;
 import org.apache.maven.artifact.repository.ArtifactRepository;
-import org.apache.maven.artifact.resolver.filter.AndArtifactFilter;
 import org.apache.maven.artifact.resolver.filter.ArtifactFilter;
 import org.apache.maven.execution.MavenSession;
 import org.apache.maven.plugin.*;
@@ -32,7 +31,13 @@ import org.eclipse.aether.repository.RemoteRepository;
 import org.eclipse.aether.resolution.ArtifactRequest;
 import org.eclipse.aether.resolution.ArtifactResolutionException;
 import org.eclipse.aether.resolution.ArtifactResult;
+import org.w3c.dom.Document;
+import org.w3c.dom.Element;
+import org.xml.sax.SAXException;
 
+import javax.xml.parsers.DocumentBuilder;
+import javax.xml.parsers.DocumentBuilderFactory;
+import javax.xml.parsers.ParserConfigurationException;
 import java.io.*;
 import java.lang.reflect.Field;
 import java.net.URI;
@@ -40,6 +45,8 @@ import java.nio.file.*;
 import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipFile;
 
 import static java.nio.file.Files.exists;
 import static java.nio.file.StandardCopyOption.REPLACE_EXISTING;
@@ -157,7 +164,7 @@ public class AssemblePluginMojo extends AbstractMojo {
     @Parameter(defaultValue = "false", property = "nodeResponsibilitiesAware")
     private boolean nodeResponsibilitiesAware;
 
-    @Parameter(defaultValue = "false", property = "generateAgentDescriptor")
+    @Parameter(defaultValue = "true", property = "generateAgentDescriptor")
     private boolean generateAgentDescriptor;
 
     @Parameter(defaultValue = "false", property = "allowRuntimeReload")
@@ -258,7 +265,7 @@ public class AssemblePluginMojo extends AbstractMojo {
         return rootNode;
     }
 
-    private File resolve(Artifact unresolvedArtifact) throws MojoExecutionException {
+    private org.eclipse.aether.artifact.Artifact resolve(Artifact unresolvedArtifact) throws MojoExecutionException {
         // Here, it becomes messy. We ask Maven to resolve the artifact's location.
         // It may imply downloading it from a remote repository,
         // searching the local repository or looking into the reactor's cache.
@@ -287,7 +294,7 @@ public class AssemblePluginMojo extends AbstractMojo {
         if (file == null || !file.exists()) {
             getLog().warn("Artifact " + artifactId + " has no attached file (" + file + "). Its content will not be copied in the target model directory.");
         }
-        return file;
+        return resolutionResult.getArtifact();
     }
 
     private void buildServerPlugin(String serverSpec) throws MojoExecutionException {
@@ -328,14 +335,12 @@ public class AssemblePluginMojo extends AbstractMojo {
     private void copyTransitiveDependenciesInto(List<DependencyNode> nodes, Path toPath) throws MojoExecutionException {
         List<Path> destinations = new ArrayList<>();
         for (DependencyNode node : nodes) {
-            File source = resolve(node.getArtifact());
-            String name = source.getName();
-            if (node.getArtifact().hasClassifier())
-                name = node.getArtifact().getArtifactId() + "." + node.getArtifact().getType();
+            org.eclipse.aether.artifact.Artifact source = resolve(node.getArtifact());
+            String name = getFileName(source);
             Path destination = toPath.resolve(name);
             destinations.add(destination);
             try {
-                internalCopy(source, destination, isReactorProject(node));
+                internalCopy(source.getFile(), destination, isReactorProject(node));
             } catch (IOException e) {
                 getLog().warn("Error while copying " + source + " to " + destination, e);
             }
@@ -349,6 +354,29 @@ public class AssemblePluginMojo extends AbstractMojo {
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
+    }
+
+    private String getFileName(org.eclipse.aether.artifact.Artifact source) {
+        String name = source.getFile().getName();
+        if (source.getClassifier() != null && Objects.equals("teamcity-agent-plugin", source.getClassifier())) {
+            name = source.getArtifactId() + "." + source.getExtension();
+            try {
+                if (source.getFile().exists()) {
+                    ZipFile file = new ZipFile(source.getFile());
+                    ZipEntry pluginDescriptorEntry = file.getEntry("teamcity-plugin.xml");
+                    if (pluginDescriptorEntry != null) {
+                        InputStream inputStream = file.getInputStream(pluginDescriptorEntry);
+                        DocumentBuilder db = DocumentBuilderFactory.newInstance().newDocumentBuilder();
+                        Document dom = db.parse(inputStream);
+                        Element nameElement = dom.getElementById("name");
+                        name = nameElement.getNodeValue();
+                    }
+                }
+            } catch (IOException | ParserConfigurationException | SAXException e) {
+                getLog().warn("Error while fetching agent plugin name of " +  source.getFile(), e);
+            }
+        }
+        return name;
     }
 
     private Path createDir(Path path) {

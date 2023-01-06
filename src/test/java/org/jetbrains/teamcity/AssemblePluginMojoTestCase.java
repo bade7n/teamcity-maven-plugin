@@ -88,6 +88,7 @@ public class AssemblePluginMojoTestCase {
                 "commons-logging-1.1.1.jar\n" +
                 "moduleA-1.1-SNAPSHOT.jar\n" +
                 "moduleB-1.1-SNAPSHOT.jar\n" +
+                "teamcity-plugin.xml\n" +
                 "PLUGIN:\n" +
                 "agent/\n" +
                 "agent/multi-module-to-test.zip\n" +
