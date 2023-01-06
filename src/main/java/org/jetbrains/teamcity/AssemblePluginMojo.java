@@ -317,7 +317,6 @@ public class AssemblePluginMojo extends AbstractMojo {
             } catch (IOException e) {
                 getLog().warn("Can't copy " + kotlinDslDescriptorsPath + " to " + kotlinDslPath);
             }
-
         }
     }
 
@@ -330,7 +329,10 @@ public class AssemblePluginMojo extends AbstractMojo {
         List<Path> destinations = new ArrayList<>();
         for (DependencyNode node : nodes) {
             File source = resolve(node.getArtifact());
-            Path destination = toPath.resolve(source.getName());
+            String name = source.getName();
+            if (node.getArtifact().hasClassifier())
+                name = node.getArtifact().getArtifactId() + "." + node.getArtifact().getType();
+            Path destination = toPath.resolve(name);
             destinations.add(destination);
             try {
                 internalCopy(source, destination, isReactorProject(node));

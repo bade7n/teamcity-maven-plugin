@@ -65,7 +65,7 @@ public class AssemblePluginMojoTestCase {
         String sb = getTestResult(mojo);
         Assert.assertEquals("PLUGIN:\n" +
                 "agent/\n" +
-                "agent/moduleA-1.1-SNAPSHOT-teamcity-agent-plugin.zip\n" +
+                "agent/moduleA.zip\n" +
                 "server/\n" +
                 "server/commons-beanutils-core-1.8.3.jar\n" +
                 "server/commons-codec-1.15.jar\n" +
