@@ -4,7 +4,6 @@ import org.apache.maven.artifact.repository.ArtifactRepository;
 import org.apache.maven.artifact.repository.ArtifactRepositoryPolicy;
 import org.apache.maven.artifact.repository.MavenArtifactRepository;
 import org.apache.maven.artifact.repository.layout.DefaultRepositoryLayout;
-import org.apache.maven.artifact.versioning.ArtifactVersion;
 import org.apache.maven.execution.MavenSession;
 import org.apache.maven.model.Model;
 import org.apache.maven.plugin.MojoExecution;
@@ -57,6 +56,26 @@ public class AssemblePluginMojoTestCase {
     }
 
     @Test
+    public void testDependencyToPlugin() throws Exception {
+        MavenSession session = initMavenSession("unit/dependency-to-plugin", "moduleA");
+        MojoExecution execution = rule.newMojoExecution("build");
+        AssemblePluginMojo mojo = (AssemblePluginMojo) rule.lookupConfiguredMojo(session, execution);
+        mojo.setFailOnMissingDependencies(false);
+        mojo.execute();
+        String sb = getTestResult(mojo);
+        Assert.assertEquals("PLUGIN:\n" +
+                "agent/\n" +
+                "agent/moduleA-1.1-SNAPSHOT-teamcity-agent-plugin.zip\n" +
+                "server/\n" +
+                "server/commons-beanutils-core-1.8.3.jar\n" +
+                "server/commons-codec-1.15.jar\n" +
+                "server/commons-logging-1.1.1.jar\n" +
+                "server/dependency-to-plugin-1.1-SNAPSHOT.jar\n" +
+                "teamcity-plugin.xml", sb);
+
+    }
+
+    @Test
     public void testMakeMultiModuleArtifact() throws Exception {
         MavenSession session = initMavenSession("unit/multi-module-to-test");
         MojoExecution execution = rule.newMojoExecution("build");
@@ -79,28 +98,28 @@ public class AssemblePluginMojoTestCase {
 
     private String getTestResult(AssemblePluginMojo mojo) throws IOException {
         StringJoiner sb = new StringJoiner("\n");
-        sb.add("AGENT:");
-        Files.list(mojo.getAgentPath()).sorted().forEachOrdered(it -> sb.add(mojo.getAgentPath().relativize(it).toString()));
+        if (mojo.getAgentPath() != null) {
+            sb.add("AGENT:");
+            Files.list(mojo.getAgentPath()).sorted().forEachOrdered(it -> sb.add(mojo.getAgentPath().relativize(it).toString()));
+        }
         sb.add("PLUGIN:");
-        org.apache.maven.artifact.Artifact a = mojo.getAttachedArtifact().get(0);
-        try (ZipFile zipFile = new ZipFile(a.getFile())) {
-            zipFile.stream()
-                    .map(ZipEntry::getName)
-                    .sorted()
-                    .forEach(sb::add);
+        Optional<org.apache.maven.artifact.Artifact> a = mojo.getAttachedArtifact().stream().filter(it -> it.getClassifier().equalsIgnoreCase("teamcity-plugin")).findFirst();
+        if (a.isPresent()) {
+            try (ZipFile zipFile = new ZipFile(a.get().getFile())) {
+                zipFile.stream()
+                        .map(ZipEntry::getName)
+                        .sorted()
+                        .forEach(sb::add);
+            }
         }
         return sb.toString();
     }
 
-    private MavenSession initMavenSession(String projectBase) throws Exception {
+    private MavenSession initMavenSession(String projectBase, String ...additionalModules) throws Exception {
         MavenProject project = rule.readMavenProject(getTestDir(projectBase));
-        List<MavenProject> projects = project.getModules().stream().map(it -> {
-            try {
-                return rule.readMavenProject(new File(getTestDir(projectBase), it));
-            } catch (Exception e) {
-                throw new RuntimeException(e);
-            }
-        }).collect(Collectors.toList());
+        List<MavenProject> projects = getMavenProjectList(projectBase, project.getModules());
+        List<MavenProject> projects1 = getMavenProjectList(projectBase, List.of(additionalModules));
+        projects.addAll(projects1);
         projects.add(0, project);
         MavenSession session = rule.newMavenSession(project);
         session.setProjects(projects);
@@ -128,7 +147,10 @@ public class AssemblePluginMojoTestCase {
                 Optional<MavenProject> projectOptional = session.getProjects().stream().filter(it -> equalArtifacts(it, artifact)).findFirst();
                 if (projectOptional.isPresent()) {
                     MavenProject p = projectOptional.get();
-                    return Path.of(p.getBuild().getDirectory(), p.getArtifactId()+"-"+p.getVersion()+".jar").toFile();
+                    if ("teamcity-agent-plugin".equalsIgnoreCase(artifact.getClassifier())) {
+                        return Path.of(p.getBuild().getDirectory(), p.getArtifactId()+"-"+p.getVersion()+"-" + artifact.getClassifier()+"." + artifact.getExtension()).toFile();
+                    } else
+                        return Path.of(p.getBuild().getDirectory(), p.getArtifactId()+"-"+p.getVersion()+"."+artifact.getExtension()).toFile();
                 } else
                     return null;
             }
@@ -145,6 +167,17 @@ public class AssemblePluginMojoTestCase {
         });
         repositorySession.setLocalRepositoryManager(lrm);
         return session;
+    }
+
+    private List<MavenProject> getMavenProjectList(String projectBase, List<String> modules) {
+        List<MavenProject> projects = modules.stream().map(it -> {
+            try {
+                return rule.readMavenProject(new File(getTestDir(projectBase), it));
+            } catch (Exception e) {
+                throw new RuntimeException(e);
+            }
+        }).collect(Collectors.toList());
+        return projects;
     }
 
     private static <T> boolean eq(T s1, T s2) {

@@ -172,7 +172,7 @@ public class AssemblePluginMojo extends AbstractMojo {
     @Parameter(property = "agentToolDependencies")
     private List<String> agentToolDependencies;
 
-    @Parameter(defaultValue = "org.jetbrains.teamcity", property = "agentExclusions")
+    @Parameter(defaultValue = "org.jetbrains.teamcity,::zip", property = "agentExclusions")
     private List<String> agentExclusions;
 
     @Parameter(defaultValue = "org.jetbrains.teamcity", property = "serverExclusions")
@@ -290,11 +290,23 @@ public class AssemblePluginMojo extends AbstractMojo {
     private void buildServerPlugin(String serverSpec) throws MojoExecutionException {
         DependencyNode rootNode = findRootNode();
         Path serverPath = createDir(pluginRoot.resolve("server"));
-        copyTransitiveDependenciesInto(rootNode, serverSpec, serverPath, serverExclusions);
+        List<DependencyNode> nodes = getDependencyNodeList(rootNode, serverSpec, serverExclusions);
+        Map<Boolean, List<DependencyNode>> dependencies = nodes.stream().collect(Collectors.partitioningBy(it -> "teamcity-agent-plugin".equalsIgnoreCase(it.getArtifact().getClassifier())));
+
+        copyTransitiveDependenciesInto(dependencies.get(Boolean.FALSE), serverPath);
+        List<DependencyNode> agentPluginDependencies = dependencies.get(Boolean.TRUE);
+        if (agentPluginDependencies != null && !agentPluginDependencies.isEmpty()) {
+            Path agentPath = createDir(pluginRoot.resolve("agent"));
+            copyTransitiveDependenciesInto(agentPluginDependencies, agentPath);
+        }
     }
 
     private void copyTransitiveDependenciesInto(DependencyNode rootNode, String spec, Path toPath, List<String> excludes) throws MojoExecutionException {
         List<DependencyNode> nodes = getDependencyNodeList(rootNode, spec, excludes);
+        copyTransitiveDependenciesInto(nodes, toPath);
+    }
+
+    private void copyTransitiveDependenciesInto(List<DependencyNode> nodes, Path toPath) throws MojoExecutionException {
         List<Path> destinations = new ArrayList<>();
         for (DependencyNode node : nodes) {
             File source = resolve(node.getArtifact());
@@ -352,6 +364,7 @@ public class AssemblePluginMojo extends AbstractMojo {
         Path agentPluginPath = outputDirectory.toPath().resolve("agent").resolve(pluginName);
         try {
             Path agentPart = zipFile(agentPath, Files.createDirectories(agentPluginPath), pluginName + ".zip");
+            projectHelper.attachArtifact(project, "zip", "teamcity-agent-plugin", agentPart.toFile());
             Files.copy(agentPart, createDir(pluginRoot.resolve("agent")).resolve(agentPart.getFileName()), REPLACE_EXISTING);
         } catch (IOException | MojoFailureException e) {
             getLog().warn("Error while packing agent part to: " + agentPluginPath, e);
@@ -401,7 +414,8 @@ public class AssemblePluginMojo extends AbstractMojo {
         StringWriter writer = new StringWriter();
         CollectingDependencyNodeVisitor transitiveCollectingVisitor = new CollectingDependencyNodeVisitor();
         MultipleDependencyNodeVisitor mdnv = new MultipleDependencyNodeVisitor(Arrays.asList(transitiveCollectingVisitor, getSerializingDependencyNodeVisitor(writer)));
-        DependencyNodeFilter exclusionFilter = new ArtifactDependencyNodeFilter(new StrictPatternExcludesArtifactFilter(exclusions));
+        ArtifactFilter artifactFilters = new AndArtifactFilter(List.of(new StrictPatternExcludesArtifactFilter(exclusions), it -> !Objects.equals("teamcity-plugin", it.hasClassifier())));
+        DependencyNodeFilter exclusionFilter = new ArtifactDependencyNodeFilter(artifactFilters);
         SkipFilteringDependencyNodeVisitor visitor = new SkipFilteringDependencyNodeVisitor(mdnv, exclusionFilter);
         nodes.forEach(it -> it.accept(visitor));
         getLog().info("Dependencies according to spec " + spec + ":\n"  + writer);
