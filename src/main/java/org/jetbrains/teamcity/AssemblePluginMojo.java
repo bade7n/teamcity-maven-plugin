@@ -32,12 +32,16 @@ import org.eclipse.aether.resolution.ArtifactRequest;
 import org.eclipse.aether.resolution.ArtifactResolutionException;
 import org.eclipse.aether.resolution.ArtifactResult;
 import org.w3c.dom.Document;
-import org.w3c.dom.Element;
+import org.w3c.dom.NodeList;
 import org.xml.sax.SAXException;
 
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.parsers.ParserConfigurationException;
+import javax.xml.xpath.XPath;
+import javax.xml.xpath.XPathConstants;
+import javax.xml.xpath.XPathExpressionException;
+import javax.xml.xpath.XPathFactory;
 import java.io.*;
 import java.lang.reflect.Field;
 import java.net.URI;
@@ -327,9 +331,10 @@ public class AssemblePluginMojo extends AbstractMojo {
         }
     }
 
-    private void copyTransitiveDependenciesInto(DependencyNode rootNode, String spec, Path toPath, List<String> excludes) throws MojoExecutionException {
+    private List<DependencyNode> copyTransitiveDependenciesInto(DependencyNode rootNode, String spec, Path toPath, List<String> excludes) throws MojoExecutionException {
         List<DependencyNode> nodes = getDependencyNodeList(rootNode, spec, excludes);
         copyTransitiveDependenciesInto(nodes, toPath);
+        return nodes;
     }
 
     private void copyTransitiveDependenciesInto(List<DependencyNode> nodes, Path toPath) throws MojoExecutionException {
@@ -368,12 +373,16 @@ public class AssemblePluginMojo extends AbstractMojo {
                         InputStream inputStream = file.getInputStream(pluginDescriptorEntry);
                         DocumentBuilder db = DocumentBuilderFactory.newInstance().newDocumentBuilder();
                         Document dom = db.parse(inputStream);
-                        Element nameElement = dom.getElementById("name");
-                        name = nameElement.getNodeValue();
+                        XPath xPath = XPathFactory.newInstance().newXPath();
+                        NodeList nodeList = (NodeList) xPath.compile("/teamcity-agent-plugin/info/name").evaluate(dom.getDocumentElement(), XPathConstants.NODESET);
+                        if (nodeList.getLength() > 0)
+                            name = nodeList.item(0).getTextContent() + "." + source.getExtension();
                     }
                 }
             } catch (IOException | ParserConfigurationException | SAXException e) {
                 getLog().warn("Error while fetching agent plugin name of " +  source.getFile(), e);
+            } catch (XPathExpressionException e) {
+                throw new RuntimeException(e);
             }
         }
         return name;
@@ -402,24 +411,25 @@ public class AssemblePluginMojo extends AbstractMojo {
          * |-server
          * |-teamcity-plugin.xml
          */
-        copyTransitiveDependenciesInto(rootNode, agentSpec, agentPath, agentExclusions);
-        if (generateAgentDescriptor) {
+        List<DependencyNode> nodesCopied = copyTransitiveDependenciesInto(rootNode, agentSpec, agentPath, agentExclusions);
+        if (!nodesCopied.isEmpty()) {
+            if (generateAgentDescriptor) {
+                try {
+                    createDescriptor("teamcity-agent-plugin.vm", agentPath.resolve(TEAMCITY_PLUGIN_XML));
+                } catch (IOException e) {
+                    getLog().warn("Error while generating agent descriptor: " + agentPath, e);
+                }
+            }
+
+            Path agentPluginPath = outputDirectory.toPath().resolve("agent").resolve(pluginName);
             try {
-                createDescriptor("teamcity-agent-plugin.vm", agentPath.resolve(TEAMCITY_PLUGIN_XML));
-            } catch (IOException e) {
-                getLog().warn("Error while generating agent descriptor: " + agentPath, e);
+                Path agentPart = zipFile(agentPath, Files.createDirectories(agentPluginPath), pluginName + ".zip");
+                projectHelper.attachArtifact(project, "zip", "teamcity-agent-plugin", agentPart.toFile());
+                Files.copy(agentPart, createDir(pluginRoot.resolve("agent")).resolve(agentPart.getFileName()), REPLACE_EXISTING);
+            } catch (IOException | MojoFailureException e) {
+                getLog().warn("Error while packing agent part to: " + agentPluginPath, e);
             }
         }
-
-        Path agentPluginPath = outputDirectory.toPath().resolve("agent").resolve(pluginName);
-        try {
-            Path agentPart = zipFile(agentPath, Files.createDirectories(agentPluginPath), pluginName + ".zip");
-            projectHelper.attachArtifact(project, "zip", "teamcity-agent-plugin", agentPart.toFile());
-            Files.copy(agentPart, createDir(pluginRoot.resolve("agent")).resolve(agentPart.getFileName()), REPLACE_EXISTING);
-        } catch (IOException | MojoFailureException e) {
-            getLog().warn("Error while packing agent part to: " + agentPluginPath, e);
-        }
-
     }
 
     private void internalCopy(File source, Path destination, boolean isReactorProject) throws IOException {
