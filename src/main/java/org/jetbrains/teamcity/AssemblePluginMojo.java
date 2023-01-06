@@ -436,7 +436,7 @@ public class AssemblePluginMojo extends AbstractMojo {
     }
 
     private void verifyAndPrepareStructure() throws MojoExecutionException, IOException {
-        pluginRoot = Files.createDirectories(outputDirectory.toPath().resolve(pluginName));
+        pluginRoot = Files.createDirectories(outputDirectory.toPath().resolve("plugin").resolve(pluginName));
         reactorProjectList = reactorProjects.stream().flatMap(this::getArtifactList).collect(Collectors.toList());
 
         Path destination = pluginRoot.resolve("teamcity-plugin.xml");

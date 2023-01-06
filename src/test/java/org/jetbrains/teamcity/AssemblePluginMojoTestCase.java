@@ -75,7 +75,7 @@ public class AssemblePluginMojoTestCase {
                 "server/moduleB-1.1-SNAPSHOT.jar\n" +
                 "teamcity-plugin.xml", sb);
     }
-
+    
     private String getTestResult(AssemblePluginMojo mojo) throws IOException {
         StringJoiner sb = new StringJoiner("\n");
         sb.add("AGENT:");
