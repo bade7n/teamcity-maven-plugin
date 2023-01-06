@@ -48,6 +48,7 @@ import static org.apache.maven.artifact.Artifact.SCOPE_RUNTIME;
 @Mojo(name = "build", defaultPhase = LifecyclePhase.PACKAGE, aggregator = true, requiresProject = true, requiresDependencyResolution = ResolutionScope.TEST, requiresDependencyCollection = ResolutionScope.TEST)
 public class AssemblePluginMojo extends AbstractMojo {
 
+    public static final String TEAMCITY_PLUGIN_XML = "teamcity-plugin.xml";
     @Parameter(defaultValue = "${project}", required = true, readonly = true)
     private MavenProject project;
 
@@ -147,19 +148,29 @@ public class AssemblePluginMojo extends AbstractMojo {
     @Parameter(defaultValue = "false", property = "useSeparateClassloader")
     private boolean useSeparateClassloader;
 
+    @Parameter(defaultValue = "false", property = "agentUseSeparateClassloader")
+    private boolean agentUseSeparateClassloader;
+
     @Parameter(defaultValue = "false", property = "nodeResponsibilitiesAware")
     private boolean nodeResponsibilitiesAware;
 
+    @Parameter(defaultValue = "false", property = "generateAgentDescriptor")
+    private boolean generateAgentDescriptor;
+
     @Parameter(defaultValue = "false", property = "allowRuntimeReload")
     private boolean allowRuntimeReload;
-    /**
-     *
-     */
+
     @Parameter(property = "pluginDependencies")
     private List<String> pluginDependencies;
 
     @Parameter(property = "toolDependencies")
     private List<String> toolDependencies;
+
+    @Parameter(property = "agentPluginDependencies")
+    private List<String> agentPluginDependencies;
+
+    @Parameter(property = "agentToolDependencies")
+    private List<String> agentToolDependencies;
 
     @Parameter(defaultValue = "org.jetbrains.teamcity", property = "agentExclusions")
     private List<String> agentExclusions;
@@ -330,6 +341,13 @@ public class AssemblePluginMojo extends AbstractMojo {
          * |-teamcity-plugin.xml
          */
         copyTransitiveDependenciesInto(rootNode, agentSpec, agentPath, agentExclusions);
+        if (generateAgentDescriptor) {
+            try {
+                createDescriptor("teamcity-agent-plugin.vm", agentPath.resolve(TEAMCITY_PLUGIN_XML));
+            } catch (IOException e) {
+                getLog().warn("Error while generating agent descriptor: " + agentPath, e);
+            }
+        }
 
         Path agentPluginPath = outputDirectory.toPath().resolve("agent").resolve(pluginName);
         try {
@@ -442,12 +460,12 @@ public class AssemblePluginMojo extends AbstractMojo {
         pluginRoot = Files.createDirectories(outputDirectory.toPath().resolve("plugin").resolve(pluginName));
         reactorProjectList = reactorProjects.stream().flatMap(this::getArtifactList).collect(Collectors.toList());
 
-        Path destination = pluginRoot.resolve("teamcity-plugin.xml");
+        Path destination = pluginRoot.resolve(TEAMCITY_PLUGIN_XML);
         if (!exists(Path.of(pluginDescriptorPath))) {
             if (failOnMissingServerDescriptor)
                 throw new MojoExecutionException(String.format("`pluginDescriptorPath` must point to teamcity plugin descriptor (%s).", pluginDescriptorPath));
             else {
-                createServerDescriptor(destination);
+                createDescriptor("teamcity-server-plugin.vm", destination);
             }
         } else {
             if (!destination.toFile().exists())
@@ -455,18 +473,18 @@ public class AssemblePluginMojo extends AbstractMojo {
         }
     }
 
-    private void createServerDescriptor(Path destination) throws IOException {
-        File serverDescriptor = destination.toFile();
-            try (FileWriter fw = new FileWriter(serverDescriptor)) {
-                VelocityContext context = new VelocityContext();
-                VelocityEngine ve = new VelocityEngine();
-                ve.setProperty(RuntimeConstants.RESOURCE_LOADER, "classpath");
-                ve.setProperty("classpath.resource.loader.class", ClasspathResourceLoader.class.getName());
-                context.put("mojo", this);
-                context.put("project", project);
-                Template template = ve.getTemplate("teamcity-server-plugin.vm");
-                template.merge(context, fw);
-            }
+    private void createDescriptor(String templateName, Path destination) throws IOException {
+        File descriptor = destination.toFile();
+        try (FileWriter fw = new FileWriter(descriptor)) {
+            VelocityContext context = new VelocityContext();
+            VelocityEngine ve = new VelocityEngine();
+            ve.setProperty(RuntimeConstants.RESOURCE_LOADER, "classpath");
+            ve.setProperty("classpath.resource.loader.class", ClasspathResourceLoader.class.getName());
+            context.put("mojo", this);
+            context.put("project", project);
+            Template template = ve.getTemplate(templateName);
+            template.merge(context, fw);
+        }
     }
 
     private ArtifactFilter createResolvingArtifactFilter(String scope) {
@@ -564,12 +582,24 @@ public class AssemblePluginMojo extends AbstractMojo {
         return toolDependencies;
     }
 
+    public List<String> getAgentPluginDependencies() {
+        return agentPluginDependencies;
+    }
+
+    public List<String> getAgentToolDependencies() {
+        return agentToolDependencies;
+    }
+
     public boolean isNodeResponsibilitiesAware() {
         return nodeResponsibilitiesAware;
     }
 
     public boolean isUseSeparateClassloader() {
         return useSeparateClassloader;
+    }
+
+    public boolean isAgentUseSeparateClassloader() {
+        return agentUseSeparateClassloader;
     }
 
     public boolean isAllowRuntimeReload() {

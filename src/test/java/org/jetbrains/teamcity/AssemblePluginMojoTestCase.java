@@ -43,6 +43,7 @@ public class AssemblePluginMojoTestCase {
         Assert.assertEquals("AGENT:\n" +
                 "commons-beanutils-core-1.8.3.jar\n" +
                 "commons-logging-1.1.1.jar\n" +
+                "teamcity-plugin.xml\n" +
                 "PLUGIN:\n" +
                 "agent/\n" +
                 "agent/project-to-test.zip\n" +
@@ -75,7 +76,7 @@ public class AssemblePluginMojoTestCase {
                 "server/moduleB-1.1-SNAPSHOT.jar\n" +
                 "teamcity-plugin.xml", sb);
     }
-    
+
     private String getTestResult(AssemblePluginMojo mojo) throws IOException {
         StringJoiner sb = new StringJoiner("\n");
         sb.add("AGENT:");
