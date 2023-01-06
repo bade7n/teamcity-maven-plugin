@@ -91,7 +91,7 @@ public class AssemblePluginMojo extends AbstractMojo {
      * Directory which will contain the generated zip file. Defaults to the Maven
      * build directory.
      */
-    @Parameter(defaultValue = "${project.build.directory}", property = "outputDir")
+    @Parameter(defaultValue = "${project.build.directory}/teamcity", property = "outputDir")
     private File outputDirectory;
 
     /**
@@ -190,7 +190,6 @@ public class AssemblePluginMojo extends AbstractMojo {
     }
 
     private Path zipIt() throws MojoFailureException {
-        zipFile(agentPath, pluginRoot.resolve("agent"), pluginName + ".zip");
         Path plugin = zipFile(pluginRoot, outputDirectory.toPath(), pluginName + ".zip");
         return plugin;
     }
@@ -304,19 +303,19 @@ public class AssemblePluginMojo extends AbstractMojo {
         }
     }
 
-    private Path createDir(Path serverUnpacked) {
+    private Path createDir(Path path) {
         try {
-            return Files.createDirectories(Files.createDirectories(serverUnpacked));
+            return Files.createDirectories(Files.createDirectories(path));
         } catch (IOException e) {
-            getLog().warn("Error while creation " + serverUnpacked, e);
-            return serverUnpacked;
+            getLog().warn("Error while creation " + path, e);
+            return path;
         }
     }
 
     public void buildAgentPlugin(String agentSpec) throws MojoExecutionException {
         DependencyNode rootNode = findRootNode();
 
-        agentPath  = createDir(outputDirectory.toPath().resolve("teamcity-agent"));
+        agentPath  = createDir(outputDirectory.toPath().resolve("agent-unpacked"));
 
         /**
          * pluginRoot/
@@ -328,6 +327,15 @@ public class AssemblePluginMojo extends AbstractMojo {
          * |-teamcity-plugin.xml
          */
         copyTransitiveDependenciesInto(rootNode, agentSpec, agentPath, agentExclusions);
+
+        Path agentPluginPath = outputDirectory.toPath().resolve("agent").resolve(pluginName);
+        try {
+            Path agentPart = zipFile(agentPath, Files.createDirectories(agentPluginPath), pluginName + ".zip");
+            Files.copy(agentPart, createDir(pluginRoot.resolve("agent")).resolve(agentPart.getFileName()), REPLACE_EXISTING);
+        } catch (IOException | MojoFailureException e) {
+            getLog().warn("Error while packing agent part to: " + agentPluginPath, e);
+        }
+
     }
 
     private void internalCopy(File source, Path destination, boolean isReactorProject) throws IOException {
@@ -341,10 +349,10 @@ public class AssemblePluginMojo extends AbstractMojo {
             else
                 destination.toFile().createNewFile();
             getLog().warn("NoSuchFileException: " + e.getMessage());
+        } catch (FileAlreadyExistsException e) {
+            Files.copy(source.toPath(), destination, REPLACE_EXISTING);
         } catch (IOException e) {
             getLog().warn(e);
-            if (source.exists())
-                Files.copy(source.toPath(), destination, REPLACE_EXISTING);
         }
     }
 
