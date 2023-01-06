@@ -315,7 +315,7 @@ public class AssemblePluginMojo extends AbstractMojo {
     public void buildAgentPlugin(String agentSpec) throws MojoExecutionException {
         DependencyNode rootNode = findRootNode();
 
-        agentPath  = createDir(outputDirectory.toPath().resolve("agent-unpacked"));
+        agentPath  = createDir(outputDirectory.toPath().resolve("agent-unpacked").resolve(pluginName));
 
         /**
          * pluginRoot/
