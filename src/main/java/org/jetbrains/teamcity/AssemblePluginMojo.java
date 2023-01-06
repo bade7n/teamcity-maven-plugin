@@ -110,6 +110,9 @@ public class AssemblePluginMojo extends AbstractMojo {
     @Parameter(defaultValue = "${project.build.outputDirectory}/META-INF/teamcity-plugin.xml", property = "pluginDescriptorPath")
     private String pluginDescriptorPath;
 
+    @Parameter(defaultValue = "${project.build.outputDirectory}/kotlin-dsl", property = "kotlinDslDescriptorsPath")
+    private File kotlinDslDescriptorsPath;
+
     @Component(hint = "default")
     private DependencyCollectorBuilder dependencyCollectorBuilder;
 
@@ -299,6 +302,23 @@ public class AssemblePluginMojo extends AbstractMojo {
             Path agentPath = createDir(pluginRoot.resolve("agent"));
             copyTransitiveDependenciesInto(agentPluginDependencies, agentPath);
         }
+
+        if (kotlinDslDescriptorsPath.exists()) {
+            Path kotlinDslPath = createDir(pluginRoot.resolve("kotlin-dsl"));
+            try {
+                Files.walk(kotlinDslDescriptorsPath.toPath()).forEach(it -> {
+                    try {
+                        if (it.toFile().isFile())
+                            Files.copy(it, kotlinDslPath.resolve(it.getFileName()));
+                    } catch (IOException e) {
+                        getLog().warn("Can't copy " + it + " to " + kotlinDslPath);
+                    }
+                });
+            } catch (IOException e) {
+                getLog().warn("Can't copy " + kotlinDslDescriptorsPath + " to " + kotlinDslPath);
+            }
+
+        }
     }
 
     private void copyTransitiveDependenciesInto(DependencyNode rootNode, String spec, Path toPath, List<String> excludes) throws MojoExecutionException {
@@ -414,9 +434,11 @@ public class AssemblePluginMojo extends AbstractMojo {
         StringWriter writer = new StringWriter();
         CollectingDependencyNodeVisitor transitiveCollectingVisitor = new CollectingDependencyNodeVisitor();
         MultipleDependencyNodeVisitor mdnv = new MultipleDependencyNodeVisitor(Arrays.asList(transitiveCollectingVisitor, getSerializingDependencyNodeVisitor(writer)));
-        ArtifactFilter artifactFilters = new AndArtifactFilter(List.of(new StrictPatternExcludesArtifactFilter(exclusions), it -> !Objects.equals("teamcity-plugin", it.hasClassifier())));
-        DependencyNodeFilter exclusionFilter = new ArtifactDependencyNodeFilter(artifactFilters);
-        SkipFilteringDependencyNodeVisitor visitor = new SkipFilteringDependencyNodeVisitor(mdnv, exclusionFilter);
+        DependencyNodeFilter exclusionFilter = new ArtifactDependencyNodeFilter(new StrictPatternExcludesArtifactFilter(exclusions));
+        AndDependencyNodeFilter andDependencyNodeFilter = new AndDependencyNodeFilter(exclusionFilter, it -> {
+            return isParentClassifierIn(it, "teamcity-plugin", "teamcity-agent-plugin");
+        });
+        SkipFilteringDependencyNodeVisitor visitor = new SkipFilteringDependencyNodeVisitor(mdnv, andDependencyNodeFilter);
         nodes.forEach(it -> it.accept(visitor));
         getLog().info("Dependencies according to spec " + spec + ":\n"  + writer);
         List<DependencyNode> nodes1 = transitiveCollectingVisitor.getNodes();
@@ -435,6 +457,13 @@ public class AssemblePluginMojo extends AbstractMojo {
             }
         }
         return result;
+    }
+
+    private boolean isParentClassifierIn(DependencyNode it, String s, String s1) {
+        if (it.getParent() != null && (Objects.equals("teamcity-plugin", it.getParent().getArtifact().getClassifier()) ||
+                Objects.equals("teamcity-agent-plugin", it.getParent().getArtifact().getClassifier())))
+            return false;
+        return true;
     }
 
     private List<DependencyNode> findSubstitutions(DependencyNode rootNode, DependencyNode node, String winnerVersion) {
@@ -493,8 +522,8 @@ public class AssemblePluginMojo extends AbstractMojo {
         try (FileWriter fw = new FileWriter(descriptor)) {
             VelocityContext context = new VelocityContext();
             VelocityEngine ve = new VelocityEngine();
-            ve.setProperty(RuntimeConstants.RESOURCE_LOADER, "classpath");
-            ve.setProperty("classpath.resource.loader.class", ClasspathResourceLoader.class.getName());
+            ve.setProperty(RuntimeConstants.RESOURCE_LOADERS, "classpath");
+            ve.setProperty("resource.loader.classpath.class", ClasspathResourceLoader.class.getName());
             context.put("mojo", this);
             context.put("project", project);
             Template template = ve.getTemplate(templateName);
