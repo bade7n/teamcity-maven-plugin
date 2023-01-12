@@ -24,13 +24,6 @@
             <version>2.2</version>
             <scope>provided</scope>
         </dependency>
-        <dependency>
-            <groupId>jb.int</groupId>
-            <artifactId>moduleA</artifactId>
-            <version>${project.version}</version>
-            <type>zip</type>
-            <classifier>teamcity-agent-plugin</classifier>
-        </dependency>
 <!--        <dependency>-->
 <!--            <groupId>org.jetbrains.teamcity.plugins</groupId>-->
 <!--            <artifactId>ant-runner</artifactId>-->
@@ -58,6 +51,15 @@
                         </goals>
                     </execution>
                 </executions>
+                <dependencies>
+                    <dependency>
+                        <groupId>jb.int</groupId>
+                        <artifactId>moduleA</artifactId>
+                        <version>${project.version}</version>
+                        <type>zip</type>
+                        <classifier>teamcity-agent-plugin</classifier>
+                    </dependency>
+                </dependencies>
             </plugin>
         </plugins>
     </build>

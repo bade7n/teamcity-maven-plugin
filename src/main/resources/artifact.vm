@@ -1,0 +1,12 @@
+<component name="ArtifactManager">
+    <artifact name="${mojo.customAgentPluginName}">
+        <output-path>$PROJECT_DIR$/.idea_artifacts/${artifactName}</output-path>
+        <root id="root">
+            <element id="directory" name="lib">
+                <element id="archive" name="launcher.jar">
+                    <element id="module-output" name="launcher" />
+                </element>
+                <element id="library" level="project" name="JetLauncher App-Wrapper IMPL" />
+        </root>
+    </artifact>
+</component>
