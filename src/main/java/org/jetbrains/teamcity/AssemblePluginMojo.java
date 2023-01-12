@@ -126,10 +126,10 @@ public class AssemblePluginMojo extends AbstractMojo {
     private String common;
 
     @Parameter(defaultValue = "${project.build.outputDirectory}/META-INF/teamcity-plugin.xml", property = "pluginDescriptorPath")
-    private String pluginDescriptorPath;
+    private File pluginDescriptorPath;
 
     @Parameter(defaultValue = "${project.build.outputDirectory}/META-INF/teamcity-agent-plugin.xml", property = "agentPluginDescriptorPath")
-    private String agentPluginDescriptorPath;
+    private File agentPluginDescriptorPath;
 
     @Parameter(defaultValue = "${project.build.outputDirectory}/kotlin-dsl", property = "kotlinDslDescriptorsPath")
     private File kotlinDslDescriptorsPath;
@@ -412,7 +412,7 @@ public class AssemblePluginMojo extends AbstractMojo {
 
     private List<DependencyNode> copyTransitiveDependenciesInto(DependencyNode rootNode, String spec, Path toPath, List<String> excludes) throws MojoExecutionException {
         List<DependencyNode> nodes = getDependencyNodeList(rootNode, spec, excludes);
-        copyTransitiveDependenciesInto(nodes, toPath);
+        List<ResolvedArtifact> artifacts = copyTransitiveDependenciesInto(nodes, toPath);
         return nodes;
     }
 
@@ -514,8 +514,12 @@ public class AssemblePluginMojo extends AbstractMojo {
                 }
             } else if (failOnMissingAgentDescriptor) {
                 throw new MojoExecutionException(String.format("`pluginDescriptorPath` must point to teamcity plugin descriptor (%s).", pluginDescriptorPath));
-            } else if (exists(Path.of(agentPluginDescriptorPath))) {
-
+            } else if (agentPluginDescriptorPath.exists()) {
+                try {
+                    Files.copy(agentPluginDescriptorPath.toPath(), agentPath.resolve(TEAMCITY_PLUGIN_XML), REPLACE_EXISTING);
+                } catch (IOException e) {
+                    throw new MojoExecutionException(String.format("Can't copy %s.", agentPluginDescriptorPath), e);
+                }
             }
 
             Path agentPluginPath = outputDirectory.toPath().resolve("agent").resolve(agentPluginName);
@@ -642,7 +646,7 @@ public class AssemblePluginMojo extends AbstractMojo {
         reactorProjectList = reactorProjects.stream().flatMap(this::getArtifactList).collect(Collectors.toList());
 
         Path destination = pluginRoot.resolve(TEAMCITY_PLUGIN_XML);
-        if (!exists(Path.of(pluginDescriptorPath))) {
+        if (!exists(pluginDescriptorPath.toPath())) {
             if (failOnMissingServerDescriptor)
                 throw new MojoExecutionException(String.format("`pluginDescriptorPath` must point to teamcity plugin descriptor (%s).", pluginDescriptorPath));
             else {
@@ -650,7 +654,7 @@ public class AssemblePluginMojo extends AbstractMojo {
             }
         } else {
             if (!destination.toFile().exists())
-                Files.copy(Path.of(pluginDescriptorPath), destination);
+                Files.copy(pluginDescriptorPath.toPath(), destination);
         }
     }
 
