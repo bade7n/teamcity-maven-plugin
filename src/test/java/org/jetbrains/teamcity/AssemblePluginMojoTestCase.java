@@ -42,6 +42,7 @@ public class AssemblePluginMojoTestCase {
         Assert.assertEquals("AGENT:\n" +
                 "commons-beanutils-core-1.8.3.jar\n" +
                 "commons-logging-1.1.1.jar\n" +
+                "lib\n" +
                 "teamcity-plugin.xml\n" +
                 "PLUGIN:\n" +
                 "agent/\n" +

@@ -1,6 +1,9 @@
 package org.jetbrains.teamcity;
 
+import org.jetbrains.teamcity.data.ResolvedArtifact;
 import org.junit.Test;
+
+import java.util.stream.Collectors;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -12,7 +15,7 @@ public class AssemblyMojoTest {
     }
 
     private void testString(String line, String key, String value) {
-        assertThat(AssemblePluginMojo.lookupPluginName(line))
+        assertThat(ResolvedArtifact.lookupPluginName(line).collect(Collectors.toList()).get(0))
                 .extracting("key","value")
                 .contains(key, value);
     }

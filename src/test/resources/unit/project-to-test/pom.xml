@@ -37,6 +37,7 @@
                     <agent>commons-beanutils:commons-beanutils-core:*:*</agent>
                     <server>*</server>
                     <generateAgentDescriptor>true</generateAgentDescriptor>
+                    <ignoreExtraFilesIn>lib</ignoreExtraFilesIn>
                     <agentToolDependencies>
                         <tool>ant</tool>
                     </agentToolDependencies>

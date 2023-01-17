@@ -1,5 +1,6 @@
 package org.jetbrains.teamcity.data;
 
+import org.apache.commons.lang3.tuple.ImmutablePair;
 import org.eclipse.aether.artifact.Artifact;
 import org.jetbrains.teamcity.AssemblePluginMojo;
 import org.slf4j.Logger;
@@ -11,7 +12,10 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.util.Map;
 import java.util.Objects;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 
@@ -41,7 +45,7 @@ public class ResolvedArtifact {
                     if (pluginDescriptorEntry != null) {
                         InputStream inputStream = file.getInputStream(pluginDescriptorEntry);
                         BufferedReader isr = new BufferedReader(new InputStreamReader(inputStream));
-                        Map<String, String> map = isr.lines().map(AssemblePluginMojo::lookupPluginName).collect(Collectors.toMap(it -> it.getKey(), it -> it.getValue()));
+                        Map<String, String> map = isr.lines().flatMap(ResolvedArtifact::lookupPluginName).collect(Collectors.toMap(it -> it.getKey(), it -> it.getValue()));
                         if (map.get("AGENT_PLUGIN_NAME") != null) {
                             name = map.get("AGENT_PLUGIN_NAME") + "." + source.getExtension();
                         }
@@ -53,4 +57,14 @@ public class ResolvedArtifact {
         }
         return name;
     }
+
+    public static Stream<Map.Entry<String, String>> lookupPluginName(String line) {
+        Pattern pat = Pattern.compile("@@([\\s\\-\\w]+)=([\\s\\w\\-]+)@@");
+        Matcher matcher = pat.matcher(line);
+        if (matcher.find()) {
+            return Stream.of(new ImmutablePair<>(matcher.group(1), matcher.group(2)));
+        }
+        return Stream.empty();
+    }
+
 }

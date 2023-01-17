@@ -113,7 +113,7 @@ public class AssemblePluginMojo extends AbstractMojo {
     @Parameter(defaultValue = "${project.artifactId}", property = "pluginName")
     private String pluginName;
 
-    @Parameter(defaultValue = "${project.artifactId}", property = "agentPluginName")
+    @Parameter(property = "agentPluginName")
     private String agentPluginName;
 
     @Parameter(defaultValue = "", property = "agent")
@@ -136,6 +136,9 @@ public class AssemblePluginMojo extends AbstractMojo {
 
     @Parameter(defaultValue = "${session.executionRootDirectory}", property = "executionRootDirectory")
     private File executionRootDirectory;
+
+    @Parameter(property = "ignoreExtraFilesIn")
+    private String ignoreExtraFilesIn;
 
     @Component(hint = "default")
     private DependencyCollectorBuilder dependencyCollectorBuilder;
@@ -183,6 +186,9 @@ public class AssemblePluginMojo extends AbstractMojo {
 
     @Parameter(defaultValue = "true", property = "generateAgentDescriptor")
     private boolean generateAgentDescriptor;
+
+    @Parameter(defaultValue = "false", property = "agentTool")
+    private boolean agentTool;
 
     @Parameter(defaultValue = "false", property = "allowRuntimeReload")
     private boolean allowRuntimeReload;
@@ -440,7 +446,11 @@ public class AssemblePluginMojo extends AbstractMojo {
 
     private void removeOtherFiles(Path toPath, List<Path> destinations) {
         try {
-            List<Path> existingFiles = Files.walk(toPath).filter(it -> !it.equals(toPath)).filter(it -> !destinations.contains(it)).collect(Collectors.toList());
+            List<Path> existingFiles = Files.walk(toPath)
+                    .filter(it -> !it.equals(toPath))
+                    .filter(it -> !destinations.contains(it))
+                    .filter(it -> shouldRemove(toPath, it))
+                    .collect(Collectors.toList());
             if (!existingFiles.isEmpty()) {
                 getLog().warn("Found extra files in " + toPath + " removing (" + existingFiles + ")");
                 existingFiles.forEach(it -> it.toFile().delete());
@@ -448,6 +458,20 @@ public class AssemblePluginMojo extends AbstractMojo {
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
+    }
+
+    private boolean shouldRemove(Path toPath, Path it) {
+        if (ignoreExtraFilesIn != null) {
+            String[] extraPaths = ignoreExtraFilesIn.split(",");
+            Path relativePath = toPath.relativize(it);
+            for (String extra: extraPaths) {
+                Path p = Paths.get(extra);
+                if ((p.isAbsolute() && it.equals(p)) || (!p.isAbsolute() && p.equals(relativePath))) {
+                    return false;
+                }
+            }
+        }
+        return true;
     }
 
     private List<ResolvedArtifact> copyDependenciesInto(List<Dependency> nodes, Path toPath) throws MojoExecutionException {
@@ -472,14 +496,6 @@ public class AssemblePluginMojo extends AbstractMojo {
 
 
 
-    public static Map.Entry<String, String> lookupPluginName(String line) {
-        Pattern pat = Pattern.compile("@@([\\s\\-\\w]+)=([\\s\\w\\-]+)@@");
-        Matcher matcher = pat.matcher(line);
-        if (matcher.find()) {
-            return new ImmutablePair<>(matcher.group(1), matcher.group(2));
-        }
-        return null;
-    }
 
     private Path createDir(Path path) {
         try {
@@ -493,7 +509,7 @@ public class AssemblePluginMojo extends AbstractMojo {
     public void buildAgentPlugin() throws MojoExecutionException {
         DependencyNode rootNode = findRootNode();
 
-        agentPath  = createDir(outputDirectory.toPath().resolve("agent-unpacked").resolve(pluginName));
+        agentPath  = createDir(outputDirectory.toPath().resolve("agent-unpacked").resolve(getAgentPluginName()));
 
         /**
          * pluginRoot/
@@ -522,9 +538,9 @@ public class AssemblePluginMojo extends AbstractMojo {
                 }
             }
 
-            Path agentPluginPath = outputDirectory.toPath().resolve("agent").resolve(agentPluginName);
+            Path agentPluginPath = outputDirectory.toPath().resolve("agent").resolve(getAgentPluginName());
             try {
-                Path agentPart = zipFile(agentPath, Files.createDirectories(agentPluginPath), agentPluginName + ".zip");
+                Path agentPart = zipFile(agentPath, Files.createDirectories(agentPluginPath), getAgentPluginName() + ".zip");
                 projectHelper.attachArtifact(project, "zip", "teamcity-agent-plugin", agentPart.toFile());
                 Files.copy(agentPart, createDir(pluginRoot.resolve("agent")).resolve(agentPart.getFileName()), REPLACE_EXISTING);
             } catch (IOException | MojoFailureException e) {
@@ -795,14 +811,25 @@ public class AssemblePluginMojo extends AbstractMojo {
         return pluginName;
     }
 
+    public boolean isAgentTool() {
+        return agentTool;
+    }
+
     public Path getAgentPath() {
         return agentPath;
     }
 
     public String getCustomAgentPluginName() {
-        return project.getArtifactId().equalsIgnoreCase(agentPluginName) ? null : agentPluginName;
+        return project.getArtifactId().equalsIgnoreCase(getAgentPluginName()) ? null : getAgentPluginName();
     }
     public void setFailOnMissingDependencies(boolean b) {
         this.failOnMissingDependencies = b;
+    }
+
+    public String getAgentPluginName() {
+        if (this.agentPluginName == null) {
+            return pluginName;
+        }
+        return agentPluginName;
     }
 }
