@@ -47,6 +47,8 @@ public class AssemblePluginMojoTestCase {
                 "PLUGIN:\n" +
                 "agent/\n" +
                 "agent/project-to-test.zip\n" +
+                "bundles\n" +
+                "bundles/1\n" +
                 "server/\n" +
                 "server/commons-beanutils-core-1.8.3.jar\n" +
                 "server/commons-codec-1.15.jar\n" +
