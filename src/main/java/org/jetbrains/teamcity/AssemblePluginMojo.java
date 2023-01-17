@@ -466,12 +466,16 @@ public class AssemblePluginMojo extends AbstractMojo {
             Path relativePath = toPath.relativize(it);
             for (String extra: extraPaths) {
                 Path p = Paths.get(extra);
-                if ((p.isAbsolute() && it.equals(p)) || (!p.isAbsolute() && p.equals(relativePath))) {
+                if ((p.isAbsolute() && it.equals(p)) || (!p.isAbsolute() && isSubpathOf(relativePath, p))) {
                     return false;
                 }
             }
         }
         return true;
+    }
+
+    public boolean isSubpathOf(Path path, Path basedir) {
+        return !basedir.relativize(path).startsWith(Path.of(".."));
     }
 
     private List<ResolvedArtifact> copyDependenciesInto(List<Dependency> nodes, Path toPath) throws MojoExecutionException {
