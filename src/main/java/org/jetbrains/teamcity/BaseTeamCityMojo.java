@@ -1,0 +1,128 @@
+package org.jetbrains.teamcity;
+
+import lombok.Getter;
+import org.apache.maven.artifact.factory.ArtifactFactory;
+import org.apache.maven.artifact.resolver.filter.ArtifactFilter;
+import org.apache.maven.execution.MavenSession;
+import org.apache.maven.plugin.AbstractMojo;
+import org.apache.maven.plugin.MojoExecutionException;
+import org.apache.maven.plugins.annotations.Component;
+import org.apache.maven.plugins.annotations.Parameter;
+import org.apache.maven.project.DefaultProjectBuildingRequest;
+import org.apache.maven.project.MavenProject;
+import org.apache.maven.project.ProjectBuildingRequest;
+import org.apache.maven.shared.artifact.filter.ScopeArtifactFilter;
+import org.apache.maven.shared.artifact.filter.StrictPatternExcludesArtifactFilter;
+import org.apache.maven.shared.artifact.filter.StrictPatternIncludesArtifactFilter;
+import org.apache.maven.shared.dependency.graph.DependencyCollectorBuilder;
+import org.apache.maven.shared.dependency.graph.DependencyCollectorBuilderException;
+import org.apache.maven.shared.dependency.graph.DependencyNode;
+import org.apache.maven.shared.dependency.graph.filter.AncestorOrSelfDependencyNodeFilter;
+import org.apache.maven.shared.dependency.graph.filter.AndDependencyNodeFilter;
+import org.apache.maven.shared.dependency.graph.filter.ArtifactDependencyNodeFilter;
+import org.apache.maven.shared.dependency.graph.filter.DependencyNodeFilter;
+import org.apache.maven.shared.dependency.graph.traversal.BuildingDependencyNodeVisitor;
+import org.apache.maven.shared.dependency.graph.traversal.CollectingDependencyNodeVisitor;
+import org.apache.maven.shared.dependency.graph.traversal.DependencyNodeVisitor;
+import org.eclipse.aether.RepositorySystem;
+import org.eclipse.aether.RepositorySystemSession;
+import org.eclipse.aether.repository.RemoteRepository;
+import org.jetbrains.teamcity.agent.ResolveUtil;
+import org.jetbrains.teamcity.agent.WorkflowUtil;
+
+import java.io.File;
+import java.io.IOException;
+import java.io.StringWriter;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+
+import static org.apache.maven.artifact.Artifact.SCOPE_RUNTIME;
+
+@Getter
+public abstract class BaseTeamCityMojo extends AbstractMojo {
+    @Parameter(defaultValue = "${repositorySystemSession}")
+    private RepositorySystemSession repoSession;
+    @Component
+    private RepositorySystem repoSystem;
+    @Parameter(defaultValue = "${project.remoteProjectRepositories}", readonly = true, required = true)
+    private List<RemoteRepository> repositories;
+
+    @Parameter(defaultValue = "${reactorProjects}", readonly = true, required = true)
+    private List<MavenProject> reactorProjects;
+
+    @Parameter(defaultValue = "${project}", required = true, readonly = true)
+    private MavenProject project;
+
+    @Parameter(defaultValue = "${session}", readonly = true, required = true)
+    private MavenSession session;
+
+    @Component
+    private ArtifactFactory artifactFactory;
+    @Parameter(defaultValue = "${project.build.outputDirectory}")
+    private File projectBuildOutputDirectory;
+
+    @Parameter(defaultValue = "${project.build.directory}/teamcity")
+    private File workDirectory;
+
+    @Parameter(property = "tokens", defaultValue = "standard")
+    private String tokens;
+
+    @Component(hint = "default")
+    private DependencyCollectorBuilder dependencyCollectorBuilder;
+
+    public WorkflowUtil getWorkflowUtil(String serverPluginName) throws IOException {
+//        Path serverPluginRoot = Files.createDirectories(workDirectory.toPath().resolve("plugin").resolve(serverPluginName));
+        ResolveUtil resolve = new ResolveUtil(getLog(), repoSystem, repositories, repoSession);
+        return new WorkflowUtil(getLog(), reactorProjects, project, workDirectory.toPath(), resolve, tokens, artifactFactory);
+    }
+
+
+    protected DependencyNode findRootNode(WorkflowUtil util) throws MojoExecutionException {
+        DependencyNode rootNode;
+        try {
+            ArtifactFilter artifactFilter = createResolvingArtifactFilter(SCOPE_RUNTIME);
+            ProjectBuildingRequest buildingRequest =
+                    new DefaultProjectBuildingRequest(session.getProjectBuildingRequest());
+            buildingRequest.setProject(getProject());
+
+            rootNode = dependencyCollectorBuilder.collectDependencyGraph(buildingRequest, artifactFilter);
+            String dependencyTreeString = serializeDependencyTree(rootNode, util);
+            getLog().warn("Dependency Tree:\n" + dependencyTreeString);
+        } catch (DependencyCollectorBuilderException exception) {
+            throw new MojoExecutionException("Cannot build project dependency graph", exception);
+        }
+
+        return rootNode;
+    }
+
+
+    private ArtifactFilter createResolvingArtifactFilter(String scope) {
+        ScopeArtifactFilter filter;
+
+        // filter scope
+        if (scope != null) {
+            getLog().debug("+ Resolving dependency tree for scope '" + scope + "'");
+            filter = new ScopeArtifactFilter(scope);
+        } else {
+            filter = null;
+        }
+
+        return filter;
+    }
+
+    private String serializeDependencyTree(DependencyNode theRootNode, WorkflowUtil util) {
+        StringWriter writer = new StringWriter();
+
+        DependencyNodeVisitor visitor = util.getSerializingDependencyNodeVisitor(writer);
+
+        // TODO: remove the need for this when the serializer can calculate last nodes from visitor calls only
+        visitor = new BuildingDependencyNodeVisitor(visitor);
+
+        theRootNode.accept(visitor);
+
+        return writer.toString();
+    }
+}

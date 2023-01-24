@@ -4,6 +4,7 @@ import lombok.Data;
 import org.apache.maven.model.Dependency;
 import org.apache.maven.model.Plugin;
 import org.apache.maven.plugin.MojoExecutionException;
+import org.apache.maven.plugin.MojoFailureException;
 import org.apache.maven.project.MavenProject;
 import org.apache.maven.shared.dependency.graph.DependencyNode;
 import org.codehaus.plexus.archiver.util.DefaultFileSet;
@@ -21,17 +22,18 @@ import java.util.stream.Collectors;
 
 import static java.nio.file.Files.exists;
 import static java.nio.file.StandardCopyOption.REPLACE_EXISTING;
-import static org.jetbrains.teamcity.AssemblePluginMojo.AGENT_SUBDIR;
-import static org.jetbrains.teamcity.AssemblePluginMojo.TEAMCITY_AGENT_PLUGIN_CLASSIFIER;
+import static org.jetbrains.teamcity.agent.AgentPluginWorkflow.TEAMCITY_AGENT_PLUGIN_CLASSIFIER;
 import static org.jetbrains.teamcity.agent.WorkflowUtil.TEAMCITY_PLUGIN_XML;
 
 @Data
 public class ServerPluginWorkflow {
+    public static final String TEAMCITY_PLUGIN_CLASSIFIER = "teamcity-plugin";
+    public static final String AGENT_SUBDIR = "agent";
+
     private final DependencyNode rootNode;
     private final Server parameters;
     private final WorkflowUtil util;
 
-    private final Optional<Plugin> plugin;
     private final MavenProject project;
 
     private final AssemblyContext assemblyContext = new AssemblyContext();
@@ -39,19 +41,31 @@ public class ServerPluginWorkflow {
     private final List<ResultArtifact> attachedArtifacts = new ArrayList<>();
     private final List<ResultArchive> attachedArchives = new ArrayList<>();
 
-    public void execute() throws MojoExecutionException, IOException {
-        prepareDescriptor();
+    private final List<ResultArtifact> agentAttachedRuntimeArtifacts = new ArrayList<>();
+    private final List<Dependency> pluginDependencies = new ArrayList<>();
+
+    public void execute() throws MojoExecutionException, IOException, MojoFailureException {
+        Path serverPluginRoot = util.createDir(util.getWorkDirectory().resolve("plugin").resolve(parameters.getPluginName()));
+        Path agentPluginRoot = util.createDir(serverPluginRoot.resolve("agent"));
+        prepareDescriptor(serverPluginRoot);
         if (parameters.isNeedToBuild())
-            buildServerPlugin(rootNode);
+            buildServerPlugin(serverPluginRoot, rootNode);
+
+        for (ResultArtifact ra : agentAttachedRuntimeArtifacts) {
+            Files.copy(ra.getFile(), agentPluginRoot.resolve(ra.getFile().getFileName()), REPLACE_EXISTING);
+        }
+
+        Path plugin = util.zipFile(serverPluginRoot, util.getWorkDirectory(), parameters.getPluginName() + ".zip");
+        attachedArtifacts.add(new ResultArtifact("zip", "teamcity-plugin", plugin));
     }
 
-    private AssemblyContext buildServerPlugin(DependencyNode rootNode) throws MojoExecutionException {
+    private AssemblyContext buildServerPlugin(Path serverPluginRoot, DependencyNode rootNode) throws MojoExecutionException {
         AssemblyContext assemblyContext = new AssemblyContext();
-        Path serverPath = util.createDir(util.getServerPluginRoot().resolve("server"));
+        Path serverPath = util.createDir(serverPluginRoot.resolve("server"));
         List<DependencyNode> nodes = util.getDependencyNodeList(rootNode, parameters.getSpec(), parameters.getExclusions());
         Map<Boolean, List<DependencyNode>> dependencies = nodes.stream().collect(Collectors.partitioningBy(it -> "teamcity-agent-plugin".equalsIgnoreCase(it.getArtifact().getClassifier())));
         assemblyContext.getPaths().add(new PathSet(serverPath));
-        util.copyTransitiveDependenciesInto(assemblyContext, dependencies.get(Boolean.FALSE), serverPath);
+        util.copyTransitiveDependenciesInto(parameters.isFailOnMissingDependencies(), parameters.getIgnoreExtraFilesIn(), assemblyContext, dependencies.get(Boolean.FALSE), serverPath);
         if (!parameters.getBuildServerResources().isEmpty()) {
             String classifier = "teamcity-plugin-resources";
             Path resourcesJar = util.getJarFile(serverPath, parameters.getArtifactId(), classifier);
@@ -67,25 +81,25 @@ public class ServerPluginWorkflow {
             }
 
             attachedArchives.add(new ResultArchive("jar", fileSets, resourcesFile));
-            attachedArtifacts.add(new ResultArtifact("jar", classifier, resourcesFile));
+            attachedArtifacts.add(new ResultArtifact("jar", classifier, resourcesJar));
         }
 
         List<DependencyNode> agentPluginDependencies = dependencies.get(Boolean.TRUE);
-        assembleExplicitAgentDependencies(assemblyContext, agentPluginDependencies);
+        assembleExplicitAgentDependencies(serverPluginRoot, assemblyContext, agentPluginDependencies);
 
-        assembleKotlinDsl();
+        assembleKotlinDsl(serverPluginRoot);
 
         if (parameters.isNeedToBuildCommon()) {
-            Path commonPath = util.createDir(util.getServerPluginRoot().resolve("common"));
+            Path commonPath = util.createDir(serverPluginRoot.resolve("common"));
             List<DependencyNode> commonNodes = util.getDependencyNodeList(rootNode, parameters.getCommonSpec(), parameters.getCommonExclusions());
-            util.copyTransitiveDependenciesInto(assemblyContext, commonNodes, commonPath);
+            util.copyTransitiveDependenciesInto(parameters.isFailOnMissingDependencies(), parameters.getIgnoreExtraFilesIn(), assemblyContext, commonNodes, commonPath);
         }
         return assemblyContext;
     }
 
-    private void prepareDescriptor() throws MojoExecutionException, IOException {
+    private void prepareDescriptor(Path serverPluginRoot) throws MojoExecutionException, IOException {
 
-        Path destination = util.getServerPluginRoot().resolve(TEAMCITY_PLUGIN_XML);
+        Path destination = serverPluginRoot.resolve(TEAMCITY_PLUGIN_XML);
         if (!exists(parameters.getDescriptor().getPath().toPath())) {
             if (parameters.getDescriptor().isFailOnMissing())
                 throw new MojoExecutionException(String.format("`pluginDescriptorPath` must point to teamcity plugin descriptor (%s).", parameters.getDescriptor().getPath()));
@@ -99,25 +113,22 @@ public class ServerPluginWorkflow {
     }
 
 
-
-    private void assembleExplicitAgentDependencies(AssemblyContext assemblyContext, List<DependencyNode> agentPluginDependencies) throws MojoExecutionException {
+    private void assembleExplicitAgentDependencies(Path serverPluginRoot, AssemblyContext assemblyContext, List<DependencyNode> agentPluginDependencies) throws MojoExecutionException {
         if (agentPluginDependencies != null && !agentPluginDependencies.isEmpty()) {
-            Path agentPath = util.createDir(util.getServerPluginRoot().resolve(AGENT_SUBDIR));
-            util.copyTransitiveDependenciesInto(assemblyContext, agentPluginDependencies, agentPath);
+            Path agentPath = util.createDir(serverPluginRoot.resolve(AGENT_SUBDIR));
+            util.copyTransitiveDependenciesInto(parameters.isFailOnMissingDependencies(), parameters.getIgnoreExtraFilesIn(), assemblyContext, agentPluginDependencies, agentPath);
         }
 
-        if (plugin.isPresent()) {
-            List<Dependency> agentDependencies = plugin.get().getDependencies().stream().filter(it -> TEAMCITY_AGENT_PLUGIN_CLASSIFIER.equalsIgnoreCase(it.getClassifier())).collect(Collectors.toList());
-            if (!agentDependencies.isEmpty()) {
-                Path agentPath = util.createDir(util.getServerPluginRoot().resolve(AGENT_SUBDIR));
-                util.copyDependenciesInto(agentDependencies, agentPath);
-            }
+        List<Dependency> agentDependencies = pluginDependencies.stream().filter(it -> TEAMCITY_AGENT_PLUGIN_CLASSIFIER.equalsIgnoreCase(it.getClassifier())).collect(Collectors.toList());
+        if (!agentDependencies.isEmpty()) {
+            Path agentPath = util.createDir(serverPluginRoot.resolve(AGENT_SUBDIR));
+            util.copyDependenciesInto(parameters.isFailOnMissingDependencies(), agentDependencies, agentPath);
         }
     }
 
-    private void assembleKotlinDsl() {
+    private void assembleKotlinDsl(Path serverPluginRoot) {
         if (parameters.getKotlinDslDescriptorsPath().exists()) {
-            Path kotlinDslPath = util.createDir(util.getServerPluginRoot().resolve("kotlin-dsl"));
+            Path kotlinDslPath = util.createDir(serverPluginRoot.resolve("kotlin-dsl"));
             try {
                 Files.walk(parameters.getKotlinDslDescriptorsPath().toPath()).forEach(it -> {
                     try {

@@ -33,6 +33,8 @@ public class Server {
     private File kotlinDslDescriptorsPath;
     private String ignoreExtraFilesIn;
     private List<String> toolDependencies;
+    @Parameter(defaultValue = "true", property = "failOnMissingDependencies")
+    private boolean failOnMissingDependencies = true;
 
     public void setDefaultValues(MavenProject project, File projectBuildOutputDirectory) {
         if (pluginName == null)

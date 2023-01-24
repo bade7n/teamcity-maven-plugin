@@ -11,15 +11,19 @@ import java.util.List;
 @NoArgsConstructor
 @AllArgsConstructor
 public class Agent {
+    @Parameter
     private String spec;
     @Parameter(defaultValue = "${project.artifactId}")
     private String pluginName;
-
-    private Descriptor descriptor = new Descriptor();
     @Parameter(defaultValue = "org.jetbrains.teamcity,::zip")
     private List<String> exclusions;
-
+    @Parameter
     private boolean tool; // if this is tool deployment
+    @Parameter(defaultValue = "true")
+    private boolean failOnMissingDependencies = true;
+    private String ignoreExtraFilesIn;
+
+    private Descriptor descriptor = new Descriptor();
 
     public boolean isNeedToBuild() {
         return spec != null && !spec.isBlank();

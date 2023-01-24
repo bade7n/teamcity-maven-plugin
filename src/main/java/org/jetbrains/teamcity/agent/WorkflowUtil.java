@@ -32,14 +32,15 @@ import org.jetbrains.teamcity.data.ResolvedArtifact;
 import java.io.*;
 import java.lang.reflect.Field;
 import java.net.URI;
+import java.nio.file.FileSystem;
 import java.nio.file.*;
 import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static java.nio.file.StandardCopyOption.REPLACE_EXISTING;
-import static org.jetbrains.teamcity.AssemblePluginMojo.TEAMCITY_AGENT_PLUGIN_CLASSIFIER;
-import static org.jetbrains.teamcity.AssemblePluginMojo.TEAMCITY_PLUGIN_CLASSIFIER;
+import static org.jetbrains.teamcity.agent.AgentPluginWorkflow.TEAMCITY_AGENT_PLUGIN_CLASSIFIER;
+import static org.jetbrains.teamcity.ServerPluginWorkflow.TEAMCITY_PLUGIN_CLASSIFIER;
 
 @Data
 public class WorkflowUtil {
@@ -48,24 +49,20 @@ public class WorkflowUtil {
     private final Log log;
     private final List<Artifact> reactorProjectList;
     private final MavenProject project;
-    private final Path serverPluginRoot;
+    private final Path workDirectory;
 
     private final ResolveUtil resolve;
-    private final String ignoreExtraFilesIn;
     private final String tokens;
     private final ArtifactFactory artifactFactory;
-    private final boolean failOnMissingDependencies;
 
-    public WorkflowUtil(Log log, List<MavenProject> reactorProjects, MavenProject project, Path serverPluginRoot, ResolveUtil resolve, String ignoreExtraFilesIn, String tokens, ArtifactFactory artifactFactory, boolean failOnMissingDependencies) {
+    public WorkflowUtil(Log log, List<MavenProject> reactorProjects, MavenProject project, Path workDirectory, ResolveUtil resolve, String tokens, ArtifactFactory artifactFactory) {
         this.log = log;
         this.reactorProjectList = reactorProjects.stream().flatMap(this::getArtifactList).collect(Collectors.toList());
         this.project = project;
-        this.serverPluginRoot = serverPluginRoot;
+        this.workDirectory = workDirectory;
         this.resolve = resolve;
-        this.ignoreExtraFilesIn = ignoreExtraFilesIn;
         this.tokens = tokens;
         this.artifactFactory = artifactFactory;
-        this.failOnMissingDependencies = failOnMissingDependencies;
     }
 
     private Stream<Artifact> getArtifactList(MavenProject it) {
@@ -89,13 +86,13 @@ public class WorkflowUtil {
         }
     }
 
-    protected List<DependencyNode> copyTransitiveDependenciesInto(AssemblyContext assemblyContext, DependencyNode rootNode, String spec, Path toPath, List<String> excludes) throws MojoExecutionException {
+    protected List<DependencyNode> copyTransitiveDependenciesInto(boolean failOnMissingDependencies, String ignoreExtraFilesIn, AssemblyContext assemblyContext, DependencyNode rootNode, String spec, Path toPath, List<String> excludes) throws MojoExecutionException {
         List<DependencyNode> nodes = getDependencyNodeList(rootNode, spec, excludes);
-        List<ResolvedArtifact> artifacts = copyTransitiveDependenciesInto(assemblyContext, nodes, toPath);
+        List<ResolvedArtifact> artifacts = copyTransitiveDependenciesInto(failOnMissingDependencies, ignoreExtraFilesIn, assemblyContext, nodes, toPath);
         return nodes;
     }
 
-    public List<ResolvedArtifact> copyTransitiveDependenciesInto(AssemblyContext assemblyContext, List<DependencyNode> nodes, Path toPath) throws MojoExecutionException {
+    public List<ResolvedArtifact> copyTransitiveDependenciesInto(boolean failOnMissingDependencies, String ignoreExtraFilesIn, AssemblyContext assemblyContext, List<DependencyNode> nodes, Path toPath) throws MojoExecutionException {
         List<Path> destinations = new ArrayList<>();
         List<ResolvedArtifact> result = new ArrayList<>();
         for (DependencyNode node : nodes) {
@@ -107,21 +104,21 @@ public class WorkflowUtil {
             destinations.add(destination);
             assemblyContext.addToLastPathSet(new DependencyPathEntry(node.getArtifact(), isReactorProject(node.getArtifact()), destination, source.getFile().toPath()));
             try {
-                internalCopy(source.getFile(), destination, ra.isReactorProject());
+                internalCopy(failOnMissingDependencies, source.getFile(), destination, ra.isReactorProject());
             } catch (IOException e) {
                 getLog().warn("Error while copying " + source + " to " + destination, e);
             }
         }
-        removeOtherFiles(toPath, destinations);
+        removeOtherFiles(ignoreExtraFilesIn, toPath, destinations);
         return result;
     }
 
-    private void removeOtherFiles(Path toPath, List<Path> destinations) {
+    private void removeOtherFiles(String ignoreExtraFilesIn, Path toPath, List<Path> destinations) {
         try {
             List<Path> existingFiles = Files.walk(toPath)
                     .filter(it -> !it.equals(toPath))
                     .filter(it -> !destinations.contains(it))
-                    .filter(it -> shouldRemove(toPath, it))
+                    .filter(it -> shouldRemove(ignoreExtraFilesIn, toPath, it))
                     .collect(Collectors.toList());
             if (!existingFiles.isEmpty()) {
                 getLog().warn("Found extra files in " + toPath + " removing (" + existingFiles + ")");
@@ -132,9 +129,9 @@ public class WorkflowUtil {
         }
     }
 
-    private boolean shouldRemove(Path toPath, Path it) {
-        if (getIgnoreExtraFilesIn() != null) {
-            String[] extraPaths = getIgnoreExtraFilesIn().split(",");
+    private boolean shouldRemove(String ignoreExtraFilesIn, Path toPath, Path it) {
+        if (ignoreExtraFilesIn != null) {
+            String[] extraPaths = ignoreExtraFilesIn.split(",");
             Path relativePath = toPath.relativize(it);
             for (String extra: extraPaths) {
                 Path p = Paths.get(extra);
@@ -255,7 +252,7 @@ public class WorkflowUtil {
         return collectingVisitor.getNodes();
     }
 
-    private void internalCopy(File source, Path destination, boolean isReactorProject) throws IOException {
+    private void internalCopy(boolean failOnMissingDependencies, File source, Path destination, boolean isReactorProject) throws IOException {
         try {
             if (!destination.toFile().exists() || isReactorProject || destination.toFile().length() != source.length()) {
                 Files.copy(source.toPath(), destination);
@@ -354,7 +351,7 @@ public class WorkflowUtil {
         }
     }
 
-    public List<ResolvedArtifact> copyDependenciesInto(List<Dependency> nodes, Path toPath) throws MojoExecutionException {
+    public List<ResolvedArtifact> copyDependenciesInto(boolean failOnMissingDependencies, List<Dependency> nodes, Path toPath) throws MojoExecutionException {
         List<Path> destinations = new ArrayList<>();
         List<ResolvedArtifact> result = new ArrayList<>();
         for (Dependency node : nodes) {
@@ -365,7 +362,7 @@ public class WorkflowUtil {
             Path destination = toPath.resolve(name);
             destinations.add(destination);
             try {
-                internalCopy(source.getFile(), destination, ra.isReactorProject());
+                internalCopy(failOnMissingDependencies, source.getFile(), destination, ra.isReactorProject());
             } catch (IOException e) {
                 getLog().warn("Error while copying " + source + " to " + destination, e);
             }

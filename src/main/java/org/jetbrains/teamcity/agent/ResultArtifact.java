@@ -2,11 +2,11 @@ package org.jetbrains.teamcity.agent;
 
 import lombok.Data;
 
-import java.io.File;
+import java.nio.file.Path;
 
 @Data
 public class ResultArtifact {
     private final String type;
     private final String classifier;
-    private final File file;
+    private final Path file;
 }

@@ -18,6 +18,7 @@ import static org.jetbrains.teamcity.agent.WorkflowUtil.TEAMCITY_PLUGIN_XML;
 
 @Data
 public class AgentPluginWorkflow {
+    public static final String TEAMCITY_AGENT_PLUGIN_CLASSIFIER = "teamcity-agent-plugin";
     private final DependencyNode rootNode;
     private final Agent parameters;
     private final WorkflowUtil util;
@@ -54,7 +55,7 @@ public class AgentPluginWorkflow {
          */
         Path agentLibPath = agentPath.resolve("lib");
         assemblyContext.getPaths().add(new PathSet(agentLibPath));
-        List<DependencyNode> nodesCopied = util.copyTransitiveDependenciesInto(assemblyContext, rootNode, parameters.getSpec(), util.createDir(agentLibPath), parameters.getExclusions());
+        List<DependencyNode> nodesCopied = util.copyTransitiveDependenciesInto(parameters.isFailOnMissingDependencies(), parameters.getIgnoreExtraFilesIn(), assemblyContext, rootNode, parameters.getSpec(), util.createDir(agentLibPath), parameters.getExclusions());
         Path descriptorPath = null;
         if (!nodesCopied.isEmpty()) {
             Path pluginDescriptor = agentPath.resolve(TEAMCITY_PLUGIN_XML);
@@ -79,8 +80,7 @@ public class AgentPluginWorkflow {
             Path agentPluginPath = workDirectory.resolve("agent").resolve(parameters.getPluginName());
             try {
                 Path agentPart = util.zipFile(agentUnpacked, Files.createDirectories(agentPluginPath), parameters.getPluginName() + ".zip");
-                attachedArtifacts.add(new ResultArtifact("zip", "teamcity-agent-plugin", agentPart.toFile()));
-                Files.copy(agentPart, util.createDir(util.getServerPluginRoot().resolve("agent")).resolve(agentPart.getFileName()), REPLACE_EXISTING);
+                attachedArtifacts.add(new ResultArtifact("zip", "teamcity-agent-plugin", agentPart));
             } catch (IOException | MojoFailureException e) {
                 util.getLog().warn("Error while packing agent part to: " + agentPluginPath, e);
             }
