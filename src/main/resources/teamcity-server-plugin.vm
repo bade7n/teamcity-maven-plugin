@@ -4,6 +4,9 @@
     <info>
         <name>${mojo.pluginName}</name>
         <display-name>${project.name}</display-name>
+#if( $project.description )
+        <description>${project.description}</description>
+#end
         <version>${project.version}</version>
 #if( $project.organization )
         <vendor>

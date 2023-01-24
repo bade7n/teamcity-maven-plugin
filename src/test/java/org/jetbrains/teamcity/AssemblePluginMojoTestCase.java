@@ -14,6 +14,7 @@ import org.eclipse.aether.DefaultRepositorySystemSession;
 import org.eclipse.aether.artifact.Artifact;
 import org.eclipse.aether.internal.impl.SimpleLocalRepositoryManagerFactory;
 import org.eclipse.aether.repository.*;
+import org.jetbrains.teamcity.agent.AssemblyContext;
 import org.junit.Assert;
 import org.junit.Rule;
 import org.junit.Test;
@@ -40,14 +41,14 @@ public class AssemblePluginMojoTestCase {
         mojo.execute();
         String sb = getTestResult(mojo);
         Assert.assertEquals("AGENT:\n" +
-                "commons-beanutils-core-1.8.3.jar\n" +
-                "commons-logging-1.1.1.jar\n" +
                 "lib\n" +
+                "lib/commons-beanutils-core-1.8.3.jar\n" +
+                "lib/commons-logging-1.1.1.jar\n" +
                 "teamcity-plugin.xml\n" +
                 "PLUGIN:\n" +
                 "agent/\n" +
                 "agent/project-to-test.zip\n" +
-                "bundles\n" +
+                "bundles/\n" +
                 "bundles/1\n" +
                 "server/\n" +
                 "server/commons-beanutils-core-1.8.3.jar\n" +
@@ -102,9 +103,9 @@ public class AssemblePluginMojoTestCase {
 
     private String getTestResult(AssemblePluginMojo mojo) throws IOException {
         StringJoiner sb = new StringJoiner("\n");
-        if (mojo.getAgentPath() != null) {
+        if (mojo.getAgentPluginWorkflow().getAgentPath() != null) {
             sb.add("AGENT:");
-            Files.list(mojo.getAgentPath()).sorted().forEachOrdered(it -> sb.add(mojo.getAgentPath().relativize(it).toString()));
+            Files.walk(mojo.getAgentPluginWorkflow().getAgentPath()).skip(1).sorted().forEachOrdered(it -> sb.add(mojo.getAgentPluginWorkflow().getAgentPath().relativize(it).toString()));
         }
         sb.add("PLUGIN:");
         Optional<org.apache.maven.artifact.Artifact> a = mojo.getAttachedArtifact().stream().filter(it -> it.getClassifier().equalsIgnoreCase("teamcity-plugin")).findFirst();

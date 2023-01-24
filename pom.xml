@@ -13,6 +13,7 @@
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <maven.version>3.8.6</maven.version>
     <resolverVersion>1.0.0.v20140518</resolverVersion>
+    <mavenArchiverVersion>3.6.0</mavenArchiverVersion>
   </properties>
 
   <dependencies>
@@ -22,7 +23,12 @@
       <version>3.7.0</version>
       <scope>provided</scope>
     </dependency>
-
+    <dependency>
+      <groupId>org.projectlombok</groupId>
+      <artifactId>lombok</artifactId>
+      <version>1.18.24</version>
+      <scope>provided</scope>
+    </dependency>
 
     <dependency>
       <groupId>org.apache.maven</groupId>
@@ -50,6 +56,16 @@
       <groupId>org.apache.maven.shared</groupId>
       <artifactId>maven-common-artifact-filters</artifactId>
       <version>3.3.2</version>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.maven.shared</groupId>
+      <artifactId>file-management</artifactId>
+      <version>3.1.0</version>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.maven</groupId>
+      <artifactId>maven-archiver</artifactId>
+      <version>${mavenArchiverVersion}</version>
     </dependency>
 
     <dependency>
@@ -139,6 +155,13 @@
         <configuration>
           <source>11</source>
           <target>11</target>
+          <annotationProcessorPaths>
+            <path>
+              <groupId>org.projectlombok</groupId>
+              <artifactId>lombok</artifactId>
+              <version>1.18.24</version>
+            </path>
+          </annotationProcessorPaths>
         </configuration>
       </plugin>
     </plugins>

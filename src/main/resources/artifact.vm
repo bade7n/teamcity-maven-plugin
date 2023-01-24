@@ -1,5 +1,5 @@
 <component name="ArtifactManager">
-    <artifact name="${mojo.customAgentPluginName}">
+    <artifact name="${mojo.customAgentPluginName} exploded">
         <output-path>$PROJECT_DIR$/.idea_artifacts/${artifactName}</output-path>
         <root id="root">
             <element id="directory" name="lib">

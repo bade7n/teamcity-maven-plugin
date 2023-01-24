@@ -31,19 +31,25 @@
             <plugin>
                 <groupId>org.jetbrains.teamcity</groupId>
                 <artifactId>teamcity-maven-plugin</artifactId>
-                <version>1.6.2-SNAPSHOT</version>
+                <version>1.6.8-SNAPSHOT</version>
                 <configuration>
-                    <agentExclusions>commons-codec</agentExclusions>
-                    <agent>commons-beanutils:commons-beanutils-core:*:*</agent>
-                    <server>*</server>
-                    <generateAgentDescriptor>true</generateAgentDescriptor>
+                    <agent>
+                        <spec>commons-beanutils:commons-beanutils-core:*:*</spec>
+                        <exclusions>commons-codec</exclusions>
+                        <descriptor>
+                            <generate>true</generate>
+                            <toolDependencies>
+                                <tool>ant</tool>
+                            </toolDependencies>
+                            <pluginDependencies>
+                                <plugin>java-dowser</plugin>
+                            </pluginDependencies>
+                        </descriptor>
+                    </agent>
+                    <server>
+                        <spec>*</spec>
+                    </server>
                     <ignoreExtraFilesIn>lib</ignoreExtraFilesIn>
-                    <agentToolDependencies>
-                        <tool>ant</tool>
-                    </agentToolDependencies>
-                    <agentPluginDependencies>
-                        <plugin>java-dowser</plugin>
-                    </agentPluginDependencies>
                 </configuration>
                 <executions>
                     <execution>

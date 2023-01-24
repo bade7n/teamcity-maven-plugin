@@ -1,0 +1,92 @@
+package org.jetbrains.teamcity.agent;
+
+import lombok.Data;
+import org.apache.maven.plugin.MojoExecutionException;
+import org.apache.maven.plugin.MojoFailureException;
+import org.apache.maven.shared.dependency.graph.DependencyNode;
+import org.jetbrains.teamcity.Agent;
+
+import java.io.File;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
+
+import static java.nio.file.StandardCopyOption.REPLACE_EXISTING;
+import static org.jetbrains.teamcity.agent.WorkflowUtil.TEAMCITY_PLUGIN_XML;
+
+@Data
+public class AgentPluginWorkflow {
+    private final DependencyNode rootNode;
+    private final Agent parameters;
+    private final WorkflowUtil util;
+
+    private final AssemblyContext assemblyContext = new AssemblyContext();
+
+    private final List<ResultArtifact> attachedArtifacts = new ArrayList<>();
+
+    private final Path workDirectory;
+
+    private Path agentPath;
+
+    public void execute() throws MojoExecutionException {
+        if (parameters.isNeedToBuild()) {
+            buildAgentPlugin(rootNode);
+        }
+    }
+
+
+    public AssemblyContext buildAgentPlugin(DependencyNode rootNode) throws MojoExecutionException {
+        AssemblyContext assemblyContext = new AssemblyContext();
+
+        Path agentUnpacked = workDirectory.resolve("agent-unpacked");
+        agentPath  = util.createDir(agentUnpacked.resolve(parameters.getPluginName()));
+
+        /**
+         * pluginRoot/
+         * |-agent/
+         * | |-plugin_name.zip
+         * |   |-plugin_name/
+         * |     |-dependencies.jar
+         * |-server
+         * |-teamcity-plugin.xml
+         */
+        Path agentLibPath = agentPath.resolve("lib");
+        assemblyContext.getPaths().add(new PathSet(agentLibPath));
+        List<DependencyNode> nodesCopied = util.copyTransitiveDependenciesInto(assemblyContext, rootNode, parameters.getSpec(), util.createDir(agentLibPath), parameters.getExclusions());
+        Path descriptorPath = null;
+        if (!nodesCopied.isEmpty()) {
+            Path pluginDescriptor = agentPath.resolve(TEAMCITY_PLUGIN_XML);
+            File targetDescriptorPath = parameters.getDescriptor().getPath();
+            if (parameters.getDescriptor().isGenerate()) {
+                try {
+                    descriptorPath = util.createDescriptor("teamcity-agent-plugin.vm", pluginDescriptor);
+                } catch (IOException e) {
+                    util.getLog().warn("Error while generating agent descriptor: " + agentPath, e);
+                }
+            } else if (targetDescriptorPath.exists()) {
+                try {
+                    Files.copy(targetDescriptorPath.toPath(), pluginDescriptor, REPLACE_EXISTING);
+                } catch (IOException e) {
+                    throw new MojoExecutionException(String.format("Can't copy %s.", targetDescriptorPath), e);
+                }
+            } else if (parameters.getDescriptor().isFailOnMissing()) {
+                throw new MojoExecutionException(String.format("`agent.pluginDescriptorPath` must point to teamcity plugin descriptor (%s).", targetDescriptorPath));
+            }
+            assemblyContext.getPaths().add(new PathSet(agentPath).with(new FilePathEntry(descriptorPath))); // add it anyway if it exists or not
+
+            Path agentPluginPath = workDirectory.resolve("agent").resolve(parameters.getPluginName());
+            try {
+                Path agentPart = util.zipFile(agentUnpacked, Files.createDirectories(agentPluginPath), parameters.getPluginName() + ".zip");
+                attachedArtifacts.add(new ResultArtifact("zip", "teamcity-agent-plugin", agentPart.toFile()));
+                Files.copy(agentPart, util.createDir(util.getServerPluginRoot().resolve("agent")).resolve(agentPart.getFileName()), REPLACE_EXISTING);
+            } catch (IOException | MojoFailureException e) {
+                util.getLog().warn("Error while packing agent part to: " + agentPluginPath, e);
+            }
+        }
+        return assemblyContext.cloneWithRoot(agentUnpacked);
+    }
+
+
+}
