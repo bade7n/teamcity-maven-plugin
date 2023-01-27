@@ -2,7 +2,7 @@
 <teamcity-plugin xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
                  xsi:noNamespaceSchemaLocation="urn:schemas-jetbrains-com:teamcity-plugin-v1-xml">
     <info>
-        <name>${mojo.pluginName}</name>
+        <name>${param.pluginName}</name>
         <display-name>${project.name}</display-name>
 #if( $project.description )
         <description>${project.description}</description>
@@ -15,13 +15,13 @@
         </vendor>
 #end
     </info>
-    <deployment use-separate-classloader="${mojo.useSeparateClassloader}" allow-runtime-reload="${mojo.allowRuntimeReload}" node-responsibilities-aware="${mojo.nodeResponsibilitiesAware}"/>
-    #if( $mojo.pluginDependencies || $mojo.toolDependencies)
+    <deployment use-separate-classloader="${param.useSeparateClassloader}" allow-runtime-reload="${param.allowRuntimeReload}" node-responsibilities-aware="${param.nodeResponsibilitiesAware}"/>
+    #if( $param.pluginDependencies || $param.toolDependencies)
     <dependencies>
-        #foreach( $dependency in $mojo.pluginDependencies )
+        #foreach( $dependency in $param.pluginDependencies )
         <plugin name="${dependency}"/>
         #end
-        #foreach( $dependency in $mojo.toolDependencies )
+        #foreach( $dependency in $param.toolDependencies )
             <tool name="${dependency}"/>
         #end
     </dependencies>

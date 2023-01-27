@@ -6,7 +6,7 @@ import java.nio.file.Path;
 import java.util.List;
 
 @Data
-public class FilePathEntry implements PathEntry {
+public class DirCopyPathEntry implements PathEntry {
     private final String name;
     private final Path resolved;
 
@@ -17,6 +17,6 @@ public class FilePathEntry implements PathEntry {
 
     @Override
     public PathEntry cloneWithRoot(Path base) {
-        return new FilePathEntry(name, resolved);
+        return new DirCopyPathEntry(name, resolved);
     }
 }

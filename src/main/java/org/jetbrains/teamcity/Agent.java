@@ -6,6 +6,7 @@ import org.apache.maven.project.MavenProject;
 
 import java.io.File;
 import java.util.List;
+import java.util.Objects;
 
 @Data
 @NoArgsConstructor
@@ -21,21 +22,28 @@ public class Agent {
     private boolean tool; // if this is tool deployment
     @Parameter(defaultValue = "true")
     private boolean failOnMissingDependencies = true;
+    @Parameter
     private String ignoreExtraFilesIn;
 
     private Descriptor descriptor = new Descriptor();
+
+    private String artifactId = null;
 
     public boolean isNeedToBuild() {
         return spec != null && !spec.isBlank();
     }
 
     public void setDefaultValues(MavenProject project, File projectBuildOutputDirectory) {
-        if (pluginName == null)
+        if (pluginName == null) {
             pluginName = project.getArtifactId();
+            artifactId = project.getArtifactId();
+        }
         if (exclusions == null)
             exclusions = List.of("org.jetbrains.teamcity", "::zip");
-        if (descriptor.getPath() == null) {
-            descriptor.setPath(projectBuildOutputDirectory.toPath().resolve("META-INF").resolve("teamcity-agent-plugin.xml").toFile());
-        }
+        descriptor.adjustDefaults(projectBuildOutputDirectory, "teamcity-agent-plugin.xml");
+    }
+
+    public boolean isCustomPluginName() {
+        return !Objects.equals(artifactId, pluginName);
     }
 }

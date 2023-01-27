@@ -8,6 +8,7 @@ import java.util.List;
 
 @Data
 public class AssemblyContext {
+    private String name;
     private Path root;
     private Path targetName;
     private Path descriptorPath;
@@ -15,12 +16,12 @@ public class AssemblyContext {
 
     public void addToLastPathSet(PathEntry entry) {
         paths.get(paths.size()-1).with(entry);
-
     }
 
     public AssemblyContext cloneWithRoot(Path base) {
         AssemblyContext ac = new AssemblyContext();
-        ac.setRoot(baseOn(root, base));
+        ac.setName(getName());
+        ac.setRoot(root);
         ac.setTargetName(baseOn(targetName, base));
         for (PathSet ps: paths) {
             ac.getPaths().add(ps.cloneWithRoot(base));

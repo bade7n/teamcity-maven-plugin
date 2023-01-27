@@ -104,7 +104,7 @@ public class ServerPluginWorkflow {
             if (parameters.getDescriptor().isFailOnMissing())
                 throw new MojoExecutionException(String.format("`pluginDescriptorPath` must point to teamcity plugin descriptor (%s).", parameters.getDescriptor().getPath()));
             else {
-                util.createDescriptor("teamcity-server-plugin.vm", destination);
+                util.createDescriptor("teamcity-server-plugin.vm", destination, parameters);
             }
         } else {
             if (!destination.toFile().exists())

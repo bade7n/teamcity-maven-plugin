@@ -25,6 +25,7 @@ import org.apache.velocity.VelocityContext;
 import org.apache.velocity.app.VelocityEngine;
 import org.apache.velocity.runtime.RuntimeConstants;
 import org.apache.velocity.runtime.resource.loader.ClasspathResourceLoader;
+import org.jetbrains.teamcity.Descriptor;
 import org.jetbrains.teamcity.MultipleDependencyNodeVisitor;
 import org.jetbrains.teamcity.SkipFilteringDependencyNodeVisitor;
 import org.jetbrains.teamcity.data.ResolvedArtifact;
@@ -102,7 +103,7 @@ public class WorkflowUtil {
             String name = ra.getFileName();
             Path destination = toPath.resolve(name);
             destinations.add(destination);
-            assemblyContext.addToLastPathSet(new DependencyPathEntry(node.getArtifact(), isReactorProject(node.getArtifact()), destination, source.getFile().toPath()));
+            assemblyContext.addToLastPathSet(new DependencyPathEntry(node.getArtifact(), ra.isReactorProject(), destination.getFileName().toString(), source.getFile().toPath()));
             try {
                 internalCopy(failOnMissingDependencies, source.getFile(), destination, ra.isReactorProject());
             } catch (IOException e) {
@@ -308,7 +309,7 @@ public class WorkflowUtil {
         return classifier != null && classifier.trim().length() > 0;
     }
 
-    public Path createDescriptor(String templateName, Path destination) throws IOException {
+    public Path createDescriptor(String templateName, Path destination, Object parameters) throws IOException {
         File descriptor = destination.toFile();
         try (FileWriter fw = new FileWriter(descriptor)) {
             VelocityContext context = new VelocityContext();
@@ -316,6 +317,7 @@ public class WorkflowUtil {
             ve.setProperty(RuntimeConstants.RESOURCE_LOADERS, "classpath");
             ve.setProperty("resource.loader.classpath.class", ClasspathResourceLoader.class.getName());
             context.put("project", project);
+            context.put("param", parameters);
             Template template = ve.getTemplate(templateName);
             template.merge(context, fw);
         }

@@ -32,6 +32,7 @@ import org.codehaus.plexus.archiver.manager.ArchiverManager;
 import org.eclipse.aether.repository.RemoteRepository;
 import org.jetbrains.teamcity.agent.*;
 
+import javax.xml.parsers.ParserConfigurationException;
 import java.io.*;
 import java.nio.file.*;
 import java.util.*;
@@ -40,36 +41,20 @@ import static org.apache.maven.artifact.Artifact.SCOPE_RUNTIME;
 
 @Mojo(name = "build", defaultPhase = LifecyclePhase.PACKAGE, aggregator = true, requiresProject = true, requiresDependencyResolution = ResolutionScope.TEST, requiresDependencyCollection = ResolutionScope.TEST)
 public class AssemblePluginMojo extends BaseTeamCityMojo {
-
-
-
-
-
-    /**
-     * Contains the full list of projects in the reactor.
-     */
-    /**
-     * The project's remote repositories to use for the resolution of project dependencies.
-     */
     @Parameter(defaultValue = "${project.remoteProjectRepositories}")
     private List<RemoteRepository> projectRepos;
 
     @Parameter(defaultValue = "${mojoExecution}", readonly = true, required = true)
     private MojoExecution mojoExecution;
 
-
     @Parameter(property = "ignoreExtraFilesIn")
     private String ignoreExtraFilesIn;
-
-
 
     @Component(hint = "default")
     private DependencyGraphBuilder dependencyGraphBuilder;
 
     @Component
     private MavenProjectHelper projectHelper;
-
-
 
     @Parameter(property = "includes")
     private String includes;
@@ -82,16 +67,15 @@ public class AssemblePluginMojo extends BaseTeamCityMojo {
 
     @Component
     private LifecycleExecutor lifecycleExecutor;
-    @Component
+    @Parameter( defaultValue = "${mojoExecution}", readonly = true )
     private MojoExecution execution;
-    @Component
+    @Parameter( defaultValue = "${plugin}", readonly = true )
     private PluginDescriptor pluginDescriptor;
     @Component
-    PluginManager pluginManager;
+    private PluginManager pluginManager;
 
     @Component
-    ArchiverManager archiverManager;
-
+    private ArchiverManager archiverManager;
 
     @Component
     private LifeCyclePluginAnalyzer lifeCyclePluginAnalyzer;
@@ -129,15 +113,14 @@ public class AssemblePluginMojo extends BaseTeamCityMojo {
         setDefaultconfigurationValues();
         try {
 
-            WorkflowUtil util = getWorkflowUtil(server.getPluginName());
+            WorkflowUtil util = getWorkflowUtil();
             DependencyNode rootNode = findRootNode(util);
 
             agentPluginWorkflow = new AgentPluginWorkflow(rootNode, agent, util, getWorkDirectory().toPath());
             agentPluginWorkflow.execute();
             attachArtifacts(agentPluginWorkflow.getAttachedArtifacts());
-            buildArtifact(agentPluginWorkflow.getAssemblyContext());
+            buildArtifact(agentPluginWorkflow.getAssemblyContexts());
 
-            Path serverPluginRoot = Files.createDirectories(getWorkDirectory().toPath().resolve("plugin").resolve(server.getPluginName()));
             serverPluginWorkflow = new ServerPluginWorkflow(rootNode, server, util, getProject());
             serverPluginWorkflow.getAgentAttachedRuntimeArtifacts().addAll(agentPluginWorkflow.getAttachedArtifacts());
             findPluginConfiguration().ifPresent(plugin -> serverPluginWorkflow.getPluginDependencies().addAll(plugin.getDependencies()));
@@ -192,20 +175,11 @@ public class AssemblePluginMojo extends BaseTeamCityMojo {
 
     }
 
-    private void attachArtifacts(List<ResultArtifact> artifacts) {
-        artifacts.forEach(it -> projectHelper.attachArtifact(getProject(), it.getType(), it.getClassifier(), it.getFile().toFile()));
-    }
-
-    private void buildArtifact(AssemblyContext agentAssemblyContext) {
-
-    }
 
 
     public List<Artifact> getAttachedArtifact() {
         return getProject().getAttachedArtifacts();
     }
-
-
 
 
 
@@ -225,5 +199,10 @@ public class AssemblePluginMojo extends BaseTeamCityMojo {
             return server.getPluginName();
         }
         return agent.getPluginName();
+    }
+
+    public void setFailOnMissingDependencies(boolean b) {
+        agent.setFailOnMissingDependencies(b);
+        server.setFailOnMissingDependencies(b);
     }
 }

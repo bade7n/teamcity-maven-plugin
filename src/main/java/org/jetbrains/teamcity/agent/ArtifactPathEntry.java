@@ -1,22 +1,24 @@
 package org.jetbrains.teamcity.agent;
 
+import lombok.AllArgsConstructor;
 import lombok.Data;
 
 import java.nio.file.Path;
 import java.util.List;
 
 @Data
-public class FilePathEntry implements PathEntry {
-    private final String name;
-    private final Path resolved;
+@AllArgsConstructor
+public class ArtifactPathEntry implements PathEntry {
+    private String name;
+    private String artifactName;
 
     @Override
     public List<Path> resolve() {
-        return List.of(resolved);
+        return null;
     }
 
     @Override
     public PathEntry cloneWithRoot(Path base) {
-        return new FilePathEntry(name, resolved);
+        return this;
     }
 }

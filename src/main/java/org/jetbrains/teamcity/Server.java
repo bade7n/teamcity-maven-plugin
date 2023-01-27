@@ -13,25 +13,28 @@ import java.util.List;
 
 @Data
 @NoArgsConstructor
-@AllArgsConstructor
 public class Server {
+    @Parameter
     private String spec;
     @Parameter(defaultValue = "${project.artifactId}")
     private String pluginName;
+    @Parameter
     private Descriptor descriptor = new Descriptor();
-
     @Parameter(defaultValue = "org.jetbrains.teamcity")
     private List<String> exclusions;
     @Parameter(property = "buildServerResources")
     private List<String> buildServerResources;
+    @Parameter(defaultValue = "${project.artifactId}")
     private String artifactId;
-    private String outputTimestamp;
+    @Parameter
     private String commonSpec;
     @Parameter(defaultValue = "org.jetbrains.teamcity")
     private List<String> commonExclusions;
     @Parameter(defaultValue = "${project.build.outputDirectory}/kotlin-dsl")
     private File kotlinDslDescriptorsPath;
+    @Parameter
     private String ignoreExtraFilesIn;
+    @Parameter
     private List<String> toolDependencies;
     @Parameter(defaultValue = "true", property = "failOnMissingDependencies")
     private boolean failOnMissingDependencies = true;

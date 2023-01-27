@@ -1,6 +1,6 @@
 <component name="ArtifactManager">
-    <artifact name="${mojo.customAgentPluginName} exploded">
-        <output-path>$PROJECT_DIR$/.idea_artifacts/${artifactName}</output-path>
+    <artifact name="TC::${param.pluginName} exploded">
+        <output-path>$PROJECT_DIR$/${artifactPath}</output-path>
         <root id="root">
             <element id="directory" name="lib">
                 <element id="archive" name="launcher.jar">

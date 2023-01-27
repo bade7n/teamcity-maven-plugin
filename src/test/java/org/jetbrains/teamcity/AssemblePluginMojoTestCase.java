@@ -10,11 +10,14 @@ import org.apache.maven.plugin.MojoExecution;
 import org.apache.maven.plugin.testing.MojoRule;
 import org.apache.maven.project.MavenProject;
 import org.apache.maven.repository.internal.MavenWorkspaceReader;
+import org.assertj.core.api.Assertions;
 import org.eclipse.aether.DefaultRepositorySystemSession;
 import org.eclipse.aether.artifact.Artifact;
 import org.eclipse.aether.internal.impl.SimpleLocalRepositoryManagerFactory;
 import org.eclipse.aether.repository.*;
+import org.jetbrains.teamcity.agent.AgentPluginWorkflow;
 import org.jetbrains.teamcity.agent.AssemblyContext;
+import org.jetbrains.teamcity.agent.ResultArtifact;
 import org.junit.Assert;
 import org.junit.Rule;
 import org.junit.Test;
@@ -28,9 +31,75 @@ import java.util.stream.Collectors;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 
+import static org.assertj.core.api.Assertions.*;
+
 public class AssemblePluginMojoTestCase {
     @Rule
     public MojoRule rule = new MojoRule();
+
+    @Test
+    public void testMakeAgentArtifact() throws Exception {
+        MavenSession session = initMavenSession("agent/simple");
+        MojoExecution execution = rule.newMojoExecution("build-agent");
+        AgentPluginMojo mojo = (AgentPluginMojo) rule.lookupConfiguredMojo(session, execution);
+        mojo.execute();
+        StringJoiner sb = new StringJoiner("\n");
+
+        appendTestResult(sb, mojo.getAgentPluginWorkflow());
+        Assert.assertEquals("AGENT:\n" +
+                "lib\n" +
+                "lib/commons-beanutils-core-1.8.3.jar\n" +
+                "lib/commons-logging-1.1.1.jar\n" +
+                "teamcity-plugin.xml", sb.toString());
+        filesAreEqual(mojo.getAgentPluginWorkflow().getPluginDescriptorPath(), """
+                <?xml version="1.0" encoding="UTF-8"?>
+                <teamcity-agent-plugin xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                                       xsi:noNamespaceSchemaLocation="urn:schemas-jetbrains-com:teamcity-agent-plugin-v1-xml">
+                    <!-- @@AGENT_PLUGIN_NAME=simple2@@ -->
+                        
+                        <plugin-deployment use-separate-classloader="false"/>
+                        <dependencies>
+                                <plugin name="java-dowser"/>
+                                <tool name="ant"/>
+                        </dependencies>
+                </teamcity-agent-plugin>
+                """);
+        assertThat(mojo.getIdeaArtifactList()).hasSize(2);
+        filesAreEqual(mojo.getIdeaArtifactList().get(0), """
+                <component name="ArtifactManager">
+                    <artifact name="TC::AGENT::simple2">
+                        <output-path>$PROJECT_DIR$/target/teamcity/agent</output-path>
+                        <root id="root">
+                            <element id="archive" name="simple2.zip">
+                                <element artifact-name="TC::AGENT::simple2::EXPLODED" id="artifact"/>
+                            </element>
+                        </root>
+                    </artifact>
+                </component>
+                """);
+        filesAreEqual(mojo.getIdeaArtifactList().get(1), """
+                <component name="ArtifactManager">
+                    <artifact name="TC::AGENT::simple2::EXPLODED">
+                        <output-path>$PROJECT_DIR$/target/teamcity/agent-unpacked</output-path>
+                        <root id="root">
+                            <element id="directory" name="simple2">
+                                <element id="directory" name="lib">
+                                    <element id="library" level="project" name="Maven: commons-beanutils:commons-beanutils-core:1.8.3"/>
+                                    <element id="library" level="project" name="Maven: commons-logging:commons-logging:1.1.1"/>
+                                </element>
+                                <element id="file-copy" output-file-name="teamcity-plugin.xml" path="$PROJECT_DIR$/target/teamcity/teamcity-agent-plugin-generated.xml"/>
+                            </element>
+                        </root>
+                    </artifact>
+                </component>
+                """);
+    }
+
+    private void filesAreEqual(Path path, String expected) throws IOException {
+        String actual = Files.readString(path);
+        assertThat(actual).isEqualToIgnoringNewLines(expected);
+    }
+
 
     @Test
     public void testMakeSimpleArtifact() throws Exception {
@@ -101,22 +170,30 @@ public class AssemblePluginMojoTestCase {
                 "teamcity-plugin.xml", sb);
     }
 
-    private String getTestResult(AssemblePluginMojo mojo) throws IOException {
-        StringJoiner sb = new StringJoiner("\n");
-        if (mojo.getAgentPluginWorkflow().getAgentPath() != null) {
+    private void appendTestResult(StringJoiner sb, AgentPluginWorkflow apw) throws IOException {
+        if (apw.getAgentPath() != null) {
             sb.add("AGENT:");
-            Files.walk(mojo.getAgentPluginWorkflow().getAgentPath()).skip(1).sorted().forEachOrdered(it -> sb.add(mojo.getAgentPluginWorkflow().getAgentPath().relativize(it).toString()));
+            Files.walk(apw.getAgentPath()).skip(1).sorted().forEachOrdered(it -> sb.add(apw.getAgentPath().relativize(it).toString()));
         }
-        sb.add("PLUGIN:");
-        Optional<org.apache.maven.artifact.Artifact> a = mojo.getAttachedArtifact().stream().filter(it -> it.getClassifier().equalsIgnoreCase("teamcity-plugin")).findFirst();
+    }
+
+    private void appendTestResult(StringJoiner sb, ServerPluginWorkflow spw) throws IOException {
+        sb.add("SERVER:");
+        Optional<ResultArtifact> a = spw.getAttachedArtifacts().stream().filter(it -> it.getClassifier().equalsIgnoreCase("teamcity-plugin")).findFirst();
         if (a.isPresent()) {
-            try (ZipFile zipFile = new ZipFile(a.get().getFile())) {
+            try (ZipFile zipFile = new ZipFile(a.get().getFile().toFile())) {
                 zipFile.stream()
                         .map(ZipEntry::getName)
                         .sorted()
                         .forEach(sb::add);
             }
         }
+    }
+
+    private String getTestResult(AssemblePluginMojo mojo) throws IOException {
+        StringJoiner sb = new StringJoiner("\n");
+        appendTestResult(sb, mojo.getAgentPluginWorkflow());
+        appendTestResult(sb, mojo.getServerPluginWorkflow());
         return sb.toString();
     }
 

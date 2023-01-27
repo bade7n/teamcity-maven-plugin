@@ -1,20 +1,20 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <teamcity-agent-plugin xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
                        xsi:noNamespaceSchemaLocation="urn:schemas-jetbrains-com:teamcity-agent-plugin-v1-xml">
-    #if( $mojo.customAgentPluginName)
-    <!-- @@AGENT_PLUGIN_NAME=${mojo.customAgentPluginName}@@ -->
+    #if( $param.customPluginName)
+    <!-- @@AGENT_PLUGIN_NAME=${param.pluginName}@@ -->
     #end
 
-    #if($mojo.agentTool)
+    #if($param.tool)
         <tool-deployment/>
     #else
-        <plugin-deployment use-separate-classloader="${mojo.agentUseSeparateClassloader}"/>
-        #if( $mojo.agentPluginDependencies || $mojo.agentToolDependencies)
+        <plugin-deployment use-separate-classloader="${param.descriptor.useSeparateClassloader}"/>
+        #if( $param.descriptor.pluginDependencies || $param.descriptor.toolDependencies)
         <dependencies>
-            #foreach( $dependency in $mojo.agentPluginDependencies )
+            #foreach( $dependency in $param.descriptor.pluginDependencies )
                 <plugin name="${dependency}"/>
             #end
-            #foreach( $dependency in $mojo.agentToolDependencies )
+            #foreach( $dependency in $param.descriptor.toolDependencies )
                 <tool name="${dependency}"/>
             #end
         </dependencies>

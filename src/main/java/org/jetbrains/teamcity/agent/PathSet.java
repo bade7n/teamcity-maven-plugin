@@ -11,17 +11,6 @@ import java.util.List;
 @AllArgsConstructor
 public class PathSet {
     private final Path dir;
-    private final String name;
-
-    public PathSet(Path dir) {
-        this.dir = dir;
-        name = null;
-    }
-
-    public PathSet() {
-        dir = null;
-        name = null;
-    }
 
     private final List<PathEntry> pathEntryList = new ArrayList<>();
 
@@ -31,7 +20,7 @@ public class PathSet {
     }
 
     public PathSet cloneWithRoot(Path base) {
-        PathSet ps = new PathSet(AssemblyContext.baseOn(dir, base), name);
+        PathSet ps = new PathSet(AssemblyContext.baseOn(dir, base));
         for (PathEntry pe: pathEntryList) {
            ps.getPathEntryList().add(pe.cloneWithRoot(base));
         }
