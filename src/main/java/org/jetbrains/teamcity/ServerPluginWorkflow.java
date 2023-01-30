@@ -168,7 +168,7 @@ public class ServerPluginWorkflow implements ArtifactListProvider {
     private void assembleKotlinDsl(AssemblyContext assemblyContext, Path serverPluginRoot) {
         if (parameters.getKotlinDslDescriptorsPath().exists()) {
             Path kotlinDslPath = util.createDir(serverPluginRoot.resolve("kotlin-dsl"));
-            assemblyContext.getPaths().add(new PathSet(serverPluginRoot.resolve("kotlin-dsl")).with(new DirCopyPathEntry("", kotlinDslPath)));
+            assemblyContext.getPaths().add(new PathSet(kotlinDslPath).with(new DirCopyPathEntry(parameters.getKotlinDslDescriptorsPath().toPath())));
             try {
                 Files.walk(parameters.getKotlinDslDescriptorsPath().toPath()).forEach(it -> {
                     try {

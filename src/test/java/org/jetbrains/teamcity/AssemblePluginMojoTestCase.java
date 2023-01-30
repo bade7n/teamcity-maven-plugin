@@ -91,6 +91,8 @@ public class AssemblePluginMojoTestCase extends BasePluginTestCase {
                 "agent/project-to-test.zip\n" +
                 "bundles/\n" +
                 "bundles/1\n" +
+                "kotlin-dsl/\n" +
+                "kotlin-dsl/test\n" +
                 "server/\n" +
                 "server/commons-beanutils-core-1.8.3.jar\n" +
                 "server/commons-codec-1.15.jar\n" +
@@ -183,6 +185,9 @@ public class AssemblePluginMojoTestCase extends BasePluginTestCase {
                                 <element id="library" level="project" name="Maven: commons-beanutils:commons-beanutils-core:1.8.3"/>
                                 <element id="library" level="project" name="Maven: commons-logging:commons-logging:1.1.1"/>
                                 <element id="library" level="project" name="Maven: commons-codec:commons-codec:1.15"/>
+                            </element>
+                            <element id="directory" name="kotlin-dsl">
+                                <element id="dir-copy" path="$PROJECT_DIR$/target/classes/kotlin-dsl"/>
                             </element>
                             <element id="directory" name="agent">
                                 <element id="archive" name="project-to-test.zip">

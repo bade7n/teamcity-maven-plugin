@@ -169,6 +169,12 @@ public class ArtifactBuilder {
                     element.setAttribute("output-file-name", fpe.getName());
 
             }
+        } else if (artifactNode.getType() == DIR_COPY) {
+            if (artifactNode.getInfo() instanceof DirCopyPathEntry) {
+                setIdName(element, "dir-copy", null);
+                DirCopyPathEntry fpe = (DirCopyPathEntry) artifactNode.getInfo();
+                element.setAttribute("path", "$PROJECT_DIR$/"+relativeTo(fpe.getResolved(), ideaProjectRoot));
+            }
         }
         return element;
     }

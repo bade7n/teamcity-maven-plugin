@@ -48,7 +48,6 @@ public class AgentPluginWorkflow implements ArtifactListProvider {
         Path agentUnpacked = workDirectory.resolve("agent-unpacked");
         agentPath  = util.createDir(agentUnpacked.resolve(parameters.getPluginName()));
         AssemblyContext assemblyContext = util.createAssemblyContext("AGENT", "EXPLODED", agentPath);
-        assemblyContext.setRoot(agentPath);
 
         AssemblyContext ideaAssemblyContext = util.createAssemblyContext("AGENT", "4IDEA", agentUnpacked);
         ideaAssemblyContext.getPaths().add(new PathSet(agentPath).with(new ArtifactPathEntry(null, assemblyContext.getName())));
