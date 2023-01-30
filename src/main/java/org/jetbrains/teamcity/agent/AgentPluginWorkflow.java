@@ -45,12 +45,15 @@ public class AgentPluginWorkflow implements ArtifactListProvider {
 
 
     public AssemblyContext buildAgentPlugin(DependencyNode rootNode) throws MojoExecutionException {
-        AssemblyContext assemblyContext = new AssemblyContext();
-        String ideaArtifactBaseName = getIdeaArtifactBaseName(parameters.getPluginName());
-        assemblyContext.setName(getExplodedName(ideaArtifactBaseName));
         Path agentUnpacked = workDirectory.resolve("agent-unpacked");
         agentPath  = util.createDir(agentUnpacked.resolve(parameters.getPluginName()));
-        assemblyContext.setRoot(agentUnpacked);
+        AssemblyContext assemblyContext = util.createAssemblyContext("AGENT", "EXPLODED", agentPath);
+        assemblyContext.setRoot(agentPath);
+
+        AssemblyContext ideaAssemblyContext = util.createAssemblyContext("AGENT", "4IDEA", agentUnpacked);
+        ideaAssemblyContext.getPaths().add(new PathSet(agentPath).with(new ArtifactPathEntry(null, assemblyContext.getName())));
+        assemblyContexts.add(ideaAssemblyContext.cloneWithRoot());
+
 
         /**
          * pluginRoot/
@@ -92,9 +95,7 @@ public class AgentPluginWorkflow implements ArtifactListProvider {
             Path agentPluginPath = workDirectory.resolve("agent");
             try {
                 String zipName = parameters.getPluginName() + ".zip";
-                AssemblyContext zipAssemblyContext =  new AssemblyContext();
-                zipAssemblyContext.setName(ideaArtifactBaseName);
-                zipAssemblyContext.setRoot(agentPluginPath);
+                AssemblyContext zipAssemblyContext = util.createAssemblyContext("AGENT", agentPluginPath);
                 zipAssemblyContext.getPaths().add(new PathSet(agentPluginPath).with(new ArtifactPathEntry(zipName, assemblyContext.getName())));
                 assemblyContexts.add(zipAssemblyContext.cloneWithRoot(agentPluginPath));
 
@@ -104,7 +105,7 @@ public class AgentPluginWorkflow implements ArtifactListProvider {
                 util.getLog().warn("Error while packing agent part to: " + agentPluginPath, e);
             }
         }
-        return assemblyContext.cloneWithRoot(agentUnpacked);
+        return assemblyContext.cloneWithRoot();
     }
 
     public static String getIdeaArtifactExplodedName(String pluginName) {

@@ -27,6 +27,7 @@ public class Descriptor {
     private List<String> toolDependencies = new ArrayList<>();
     @Parameter(defaultValue = "${project.build.outputDirectory}/META-INF/teamcity-agent-plugin.xml")
     private File path;
+    private boolean isInUnitTest = false;
 
     public void adjustDefaults(File projectBuildOutputDirectory, String fileName) {
         if (path == null)

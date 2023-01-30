@@ -2,6 +2,7 @@ package org.jetbrains.teamcity.agent;
 
 import lombok.Data;
 import org.apache.maven.artifact.Artifact;
+import org.apache.maven.artifact.ArtifactUtils;
 import org.apache.maven.artifact.factory.ArtifactFactory;
 import org.apache.maven.artifact.resolver.filter.ArtifactFilter;
 import org.apache.maven.model.Dependency;
@@ -39,6 +40,7 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static java.nio.file.StandardCopyOption.REPLACE_EXISTING;
+import static org.apache.maven.artifact.ArtifactUtils.key;
 import static org.jetbrains.teamcity.agent.AgentPluginWorkflow.TEAMCITY_AGENT_PLUGIN_CLASSIFIER;
 import static org.jetbrains.teamcity.ServerPluginWorkflow.TEAMCITY_PLUGIN_CLASSIFIER;
 
@@ -96,7 +98,10 @@ public class WorkflowUtil {
         List<Path> destinations = new ArrayList<>();
         List<ResolvedArtifact> result = new ArrayList<>();
         for (DependencyNode node : nodes) {
-            org.eclipse.aether.artifact.Artifact source = resolve.resolve(findAlternativeArtifacts(node.getArtifact()));
+            Artifact alternativeArtifact = findAlternativeArtifacts(node.getArtifact());
+            if (alternativeArtifact == null)
+                continue;
+            org.eclipse.aether.artifact.Artifact source = resolve.resolve(alternativeArtifact);
             ResolvedArtifact ra = new ResolvedArtifact(source, isReactorProject(node.getArtifact()));
             result.add(ra);
             String name = ra.getFileName();
@@ -133,7 +138,7 @@ public class WorkflowUtil {
         if (ignoreExtraFilesIn != null) {
             String[] extraPaths = ignoreExtraFilesIn.split(",");
             Path relativePath = toPath.relativize(it);
-            for (String extra: extraPaths) {
+            for (String extra : extraPaths) {
                 Path p = Paths.get(extra);
                 if ((p.isAbsolute() && it.equals(p)) || (!p.isAbsolute() && isSubpathOf(relativePath, p))) {
                     return false;
@@ -151,13 +156,16 @@ public class WorkflowUtil {
         if ("war".equalsIgnoreCase(a.getType())) {
             if (project.getArtifact().equals(a)) {
                 List<Artifact> jarArtifacts = project.getAttachedArtifacts().stream().filter(it -> it.getType().equalsIgnoreCase("jar")).collect(Collectors.toList());
-                if (!jarArtifacts.isEmpty())
+                if (jarArtifacts.size() == 1)
                     return jarArtifacts.get(0);
+                else {
+                    getLog().warn("Not possible to resolve WAR " + key(a) + " to a classes artifact. The result is [" + jarArtifacts.stream().map(ArtifactUtils::key).collect(Collectors.joining(",")) + "]");
+                    return null;// no need to attach war file inside the plugin.
+                }
             }
         }
         return a;
     }
-
 
 
     public List<DependencyNode> getDependencyNodeList(DependencyNode rootNode, String spec, List<String> exclusions) {
@@ -179,11 +187,11 @@ public class WorkflowUtil {
         });
         SkipFilteringDependencyNodeVisitor visitor = new SkipFilteringDependencyNodeVisitor(mdnv, andDependencyNodeFilter);
         nodes.forEach(it -> it.accept(visitor));
-        getLog().info("Dependencies according to spec " + spec + ":\n"  + writer);
+        getLog().info("Dependencies according to spec " + spec + ":\n" + writer);
         List<DependencyNode> nodes1 = transitiveCollectingVisitor.getNodes();
         // now conflicted dependencies might be in list, need to find them and resolve to the right version
         List<DependencyNode> result = new ArrayList<>();
-        for (DependencyNode node: nodes1) {
+        for (DependencyNode node : nodes1) {
             ConflictData cd = getPrivateField(node);
             if (cd != null && cd.getWinnerVersion() != null) {
                 List<DependencyNode> substitutions = findSubstitutions(rootNode, node, cd.getWinnerVersion());
@@ -376,7 +384,7 @@ public class WorkflowUtil {
     public AssemblyContext createAssemblyContext(String prefix, String suffix, Path root) {
         AssemblyContext assemblyContext = new AssemblyContext();
         if (suffix != null && !suffix.isBlank())
-            suffix = "::"+suffix;
+            suffix = "::" + suffix;
         else
             suffix = "";
         assemblyContext.setName("TC::" + prefix + "::" + getProject().getArtifactId() + suffix);
@@ -384,4 +392,7 @@ public class WorkflowUtil {
         return assemblyContext;
     }
 
+    public AssemblyContext createAssemblyContext(String prefix, Path root) {
+        return createAssemblyContext(prefix, null, root);
+    }
 }

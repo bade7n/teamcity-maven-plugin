@@ -4,7 +4,6 @@ import com.google.common.base.Strings;
 import lombok.Data;
 import org.apache.maven.artifact.Artifact;
 import org.apache.maven.plugin.logging.Log;
-import org.apache.maven.project.MavenProject;
 import org.jetbrains.teamcity.agent.*;
 import org.jetbrains.teamcity.data.ArtifactNode;
 import org.w3c.dom.Document;
@@ -204,7 +203,7 @@ public class ArtifactBuilder {
                 return an;
             }
         }
-        if (!Strings.isNullOrEmpty(name)) { // skip empty directories
+        if (name != null && !name.isBlank()) { // skip empty directories
             ArtifactNode an = new ArtifactNode(name, DIR, null);
             current.getChilds().add(an);
             return an;
