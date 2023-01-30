@@ -60,14 +60,13 @@ public class ServerPluginWorkflow implements ArtifactListProvider {
             ideaAssemblyContext.getPaths().add(new PathSet(serverPluginRoot).with(new ArtifactPathEntry(null, assemblyContext.getName())));
             assemblyContexts.add(ideaAssemblyContext.cloneWithRoot());
 
-            AssemblyContext zipAssemblyContext = new AssemblyContext();
 
 
             String zipName = parameters.getPluginName() + ".zip";
             Path dist = util.getWorkDirectory().resolve("dist");
             Path plugin = util.zipFile(serverPluginRoot, dist, zipName);
-            zipAssemblyContext.setName(getIdeaArtifactBaseName(parameters.getPluginName()));
-            zipAssemblyContext.setRoot(dist);
+
+            AssemblyContext zipAssemblyContext = util.createAssemblyContext("SERVER", dist);
             zipAssemblyContext.getPaths().add(new PathSet(dist).with(new ArtifactPathEntry(zipName, assemblyContext.getName())));
             assemblyContexts.add(zipAssemblyContext.cloneWithRoot(dist));
             attachedArtifacts.add(new ResultArtifact("zip", "teamcity-plugin", plugin, zipAssemblyContext));
@@ -75,10 +74,6 @@ public class ServerPluginWorkflow implements ArtifactListProvider {
 
 
         ideaArtifactList.addAll(new ArtifactBuilder(util.getLog(), util).build(getAssemblyContexts()));
-    }
-
-    public static String getIdeaArtifactBaseName(String pluginName) {
-        return "TC::SERVER::" + pluginName;
     }
 
     private AssemblyContext buildServerPlugin(Path serverPluginRoot, DependencyNode rootNode) throws MojoExecutionException {
@@ -92,7 +87,7 @@ public class ServerPluginWorkflow implements ArtifactListProvider {
         util.copyTransitiveDependenciesInto(parameters.isFailOnMissingDependencies(), parameters.getIgnoreExtraFilesIn(), assemblyContext, dependencies.get(Boolean.FALSE), serverPath);
         if (!parameters.getBuildServerResources().isEmpty()) {
             String classifier = "teamcity-plugin-resources";
-            Path resourcesJar = util.getJarFile(serverPath, parameters.getArtifactId(), classifier);
+            Path resourcesJar = util.getJarFile(serverPath, util.getProject().getArtifactId(), classifier);
             assemblyContext.getPaths().add(new PathSet(resourcesJar.getParent()));
             CompressedPathEntry compressedBuildServerResources = new CompressedPathEntry(resourcesJar.toFile().getName(), "buildServerResources");
             assemblyContext.addToLastPathSet(compressedBuildServerResources);
@@ -183,6 +178,4 @@ public class ServerPluginWorkflow implements ArtifactListProvider {
             }
         }
     }
-
-
 }

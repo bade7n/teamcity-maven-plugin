@@ -24,8 +24,6 @@ public class Server {
     private List<String> exclusions;
     @Parameter(property = "buildServerResources")
     private List<String> buildServerResources;
-    @Parameter(defaultValue = "${project.artifactId}")
-    private String artifactId;
     @Parameter
     private String commonSpec;
     @Parameter(defaultValue = "org.jetbrains.teamcity")

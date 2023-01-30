@@ -26,6 +26,7 @@ import org.apache.velocity.VelocityContext;
 import org.apache.velocity.app.VelocityEngine;
 import org.apache.velocity.runtime.RuntimeConstants;
 import org.apache.velocity.runtime.resource.loader.ClasspathResourceLoader;
+import org.jetbrains.teamcity.ArtifactBuilder;
 import org.jetbrains.teamcity.MultipleDependencyNodeVisitor;
 import org.jetbrains.teamcity.SkipFilteringDependencyNodeVisitor;
 import org.jetbrains.teamcity.data.ResolvedArtifact;
@@ -373,7 +374,7 @@ public class WorkflowUtil {
             destinations.add(destination);
             try {
                 internalCopy(failOnMissingDependencies, source.getFile(), destination, ra.isReactorProject());
-                assemblyContext.addToLastPathSet(new ArtifactPathEntry(name, AgentPluginWorkflow.getIdeaArtifactExplodedName(name)));
+                assemblyContext.addToLastPathSet(new ArtifactPathEntry(name, getAssemblyName(a.getArtifactId(), "AGENT", "EXPLODED")));
             } catch (IOException e) {
                 getLog().warn("Error while copying " + source + " to " + destination, e);
             }
@@ -383,13 +384,17 @@ public class WorkflowUtil {
 
     public AssemblyContext createAssemblyContext(String prefix, String suffix, Path root) {
         AssemblyContext assemblyContext = new AssemblyContext();
+        assemblyContext.setName(getAssemblyName(getProject().getArtifactId(), prefix, suffix));
+        assemblyContext.setRoot(root);
+        return assemblyContext;
+    }
+
+    public String getAssemblyName(String artifactId, String prefix, String suffix) {
         if (suffix != null && !suffix.isBlank())
             suffix = "::" + suffix;
         else
             suffix = "";
-        assemblyContext.setName("TC::" + prefix + "::" + getProject().getArtifactId() + suffix);
-        assemblyContext.setRoot(root);
-        return assemblyContext;
+        return "TC::" + prefix + "::" + artifactId + suffix;
     }
 
     public AssemblyContext createAssemblyContext(String prefix, Path root) {

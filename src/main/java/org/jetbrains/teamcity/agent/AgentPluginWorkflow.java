@@ -98,24 +98,12 @@ public class AgentPluginWorkflow implements ArtifactListProvider {
                 zipAssemblyContext.getPaths().add(new PathSet(agentPluginPath).with(new ArtifactPathEntry(zipName, assemblyContext.getName())));
                 assemblyContexts.add(zipAssemblyContext.cloneWithRoot(agentPluginPath));
 
-                Path agentPart = util.zipFile(agentUnpacked, Files.createDirectories(agentPluginPath), zipName);
+                Path agentPart = util.zipFile(agentPath, Files.createDirectories(agentPluginPath), zipName);
                 attachedArtifacts.add(new ResultArtifact("zip", "teamcity-agent-plugin", agentPart, zipAssemblyContext));
             } catch (IOException | MojoFailureException e) {
                 util.getLog().warn("Error while packing agent part to: " + agentPluginPath, e);
             }
         }
         return assemblyContext.cloneWithRoot();
-    }
-
-    public static String getIdeaArtifactExplodedName(String pluginName) {
-        return getExplodedName(getIdeaArtifactBaseName(pluginName));
-    }
-
-    public static String getExplodedName(String ideaArtifactBaseName) {
-        return ideaArtifactBaseName + "::EXPLODED";
-    }
-
-    public static String getIdeaArtifactBaseName(String pluginName) {
-        return "TC::AGENT::" + pluginName;
     }
 }
