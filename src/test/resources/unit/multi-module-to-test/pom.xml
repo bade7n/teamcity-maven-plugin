@@ -45,8 +45,12 @@
                 <artifactId>teamcity-maven-plugin</artifactId>
                 <version>${project.version}</version>
                 <configuration>
-                    <agent>:moduleA:*:*</agent>
-                    <server>:moduleB:*:*</server>
+                    <agent>
+                        <spec>:moduleA:*:*</spec>
+                    </agent>
+                    <server>
+                        <spec>:moduleB:*:*</spec>
+                    </server>
                 </configuration>
                 <executions>
                     <execution>

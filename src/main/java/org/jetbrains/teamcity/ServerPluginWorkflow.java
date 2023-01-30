@@ -2,16 +2,12 @@ package org.jetbrains.teamcity;
 
 import lombok.Data;
 import org.apache.maven.model.Dependency;
-import org.apache.maven.model.Plugin;
 import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugin.MojoFailureException;
 import org.apache.maven.project.MavenProject;
 import org.apache.maven.shared.dependency.graph.DependencyNode;
 import org.codehaus.plexus.archiver.util.DefaultFileSet;
-import org.jetbrains.teamcity.agent.AssemblyContext;
-import org.jetbrains.teamcity.agent.PathSet;
-import org.jetbrains.teamcity.agent.ResultArtifact;
-import org.jetbrains.teamcity.agent.WorkflowUtil;
+import org.jetbrains.teamcity.agent.*;
 
 import java.io.File;
 import java.io.IOException;
@@ -20,13 +16,12 @@ import java.nio.file.Path;
 import java.util.*;
 import java.util.stream.Collectors;
 
-import static java.nio.file.Files.exists;
 import static java.nio.file.StandardCopyOption.REPLACE_EXISTING;
 import static org.jetbrains.teamcity.agent.AgentPluginWorkflow.TEAMCITY_AGENT_PLUGIN_CLASSIFIER;
 import static org.jetbrains.teamcity.agent.WorkflowUtil.TEAMCITY_PLUGIN_XML;
 
 @Data
-public class ServerPluginWorkflow {
+public class ServerPluginWorkflow implements ArtifactListProvider {
     public static final String TEAMCITY_PLUGIN_CLASSIFIER = "teamcity-plugin";
     public static final String AGENT_SUBDIR = "agent";
 
@@ -36,7 +31,9 @@ public class ServerPluginWorkflow {
 
     private final MavenProject project;
 
-    private final AssemblyContext assemblyContext = new AssemblyContext();
+    private final Path workDirectory;
+
+    private final List<AssemblyContext> assemblyContexts = new ArrayList<>();
 
     private final List<ResultArtifact> attachedArtifacts = new ArrayList<>();
     private final List<ResultArchive> attachedArchives = new ArrayList<>();
@@ -44,23 +41,50 @@ public class ServerPluginWorkflow {
     private final List<ResultArtifact> agentAttachedRuntimeArtifacts = new ArrayList<>();
     private final List<Dependency> pluginDependencies = new ArrayList<>();
 
+    private Path pluginDescriptorPath;
+
+    private final List<Path> ideaArtifactList = new ArrayList<>();
+
     public void execute() throws MojoExecutionException, IOException, MojoFailureException {
         Path serverPluginRoot = util.createDir(util.getWorkDirectory().resolve("plugin").resolve(parameters.getPluginName()));
         Path agentPluginRoot = util.createDir(serverPluginRoot.resolve("agent"));
-        prepareDescriptor(serverPluginRoot);
-        if (parameters.isNeedToBuild())
-            buildServerPlugin(serverPluginRoot, rootNode);
+        if (parameters.isNeedToBuild()) {
+            AssemblyContext assemblyContext = buildServerPlugin(serverPluginRoot, rootNode);
 
-        for (ResultArtifact ra : agentAttachedRuntimeArtifacts) {
-            Files.copy(ra.getFile(), agentPluginRoot.resolve(ra.getFile().getFileName()), REPLACE_EXISTING);
+            for (ResultArtifact ra : agentAttachedRuntimeArtifacts) {
+                assemblyContext.getPaths().add(new PathSet(agentPluginRoot).with(new ArtifactPathEntry(ra.getFile().toFile().getName(), ra.getArtifactContext().getName())));
+                Files.copy(ra.getFile(), agentPluginRoot.resolve(ra.getFile().getFileName()), REPLACE_EXISTING);
+            }
+            assemblyContexts.add(assemblyContext.cloneWithRoot());
+            AssemblyContext ideaAssemblyContext = util.createAssemblyContext("SERVER", "4IDEA", serverPluginRoot.getParent());
+            ideaAssemblyContext.getPaths().add(new PathSet(serverPluginRoot).with(new ArtifactPathEntry(null, assemblyContext.getName())));
+            assemblyContexts.add(ideaAssemblyContext.cloneWithRoot());
+
+            AssemblyContext zipAssemblyContext = new AssemblyContext();
+
+
+            String zipName = parameters.getPluginName() + ".zip";
+            Path dist = util.getWorkDirectory().resolve("dist");
+            Path plugin = util.zipFile(serverPluginRoot, dist, zipName);
+            zipAssemblyContext.setName(getIdeaArtifactBaseName(parameters.getPluginName()));
+            zipAssemblyContext.setRoot(dist);
+            zipAssemblyContext.getPaths().add(new PathSet(dist).with(new ArtifactPathEntry(zipName, assemblyContext.getName())));
+            assemblyContexts.add(zipAssemblyContext.cloneWithRoot(dist));
+            attachedArtifacts.add(new ResultArtifact("zip", "teamcity-plugin", plugin, zipAssemblyContext));
         }
 
-        Path plugin = util.zipFile(serverPluginRoot, util.getWorkDirectory(), parameters.getPluginName() + ".zip");
-        attachedArtifacts.add(new ResultArtifact("zip", "teamcity-plugin", plugin));
+
+        ideaArtifactList.addAll(new ArtifactBuilder(util.getLog(), util).build(getAssemblyContexts()));
+    }
+
+    public static String getIdeaArtifactBaseName(String pluginName) {
+        return "TC::SERVER::" + pluginName;
     }
 
     private AssemblyContext buildServerPlugin(Path serverPluginRoot, DependencyNode rootNode) throws MojoExecutionException {
-        AssemblyContext assemblyContext = new AssemblyContext();
+        AssemblyContext assemblyContext = util.createAssemblyContext("SERVER", "EXPLODED", serverPluginRoot);
+        prepareDescriptor(assemblyContext, serverPluginRoot);
+
         Path serverPath = util.createDir(serverPluginRoot.resolve("server"));
         List<DependencyNode> nodes = util.getDependencyNodeList(rootNode, parameters.getSpec(), parameters.getExclusions());
         Map<Boolean, List<DependencyNode>> dependencies = nodes.stream().collect(Collectors.partitioningBy(it -> "teamcity-agent-plugin".equalsIgnoreCase(it.getArtifact().getClassifier())));
@@ -69,6 +93,9 @@ public class ServerPluginWorkflow {
         if (!parameters.getBuildServerResources().isEmpty()) {
             String classifier = "teamcity-plugin-resources";
             Path resourcesJar = util.getJarFile(serverPath, parameters.getArtifactId(), classifier);
+            assemblyContext.getPaths().add(new PathSet(resourcesJar.getParent()));
+            CompressedPathEntry compressedBuildServerResources = new CompressedPathEntry(resourcesJar.toFile().getName(), "buildServerResources");
+            assemblyContext.addToLastPathSet(compressedBuildServerResources);
 
             File resourcesFile = resourcesJar.toFile();
             List<org.codehaus.plexus.archiver.FileSet> fileSets = new ArrayList<>();
@@ -77,19 +104,21 @@ public class ServerPluginWorkflow {
                 if (!path.isAbsolute())
                     path = project.getBasedir().toPath().resolve(path);
                 org.codehaus.plexus.archiver.FileSet fs = new DefaultFileSet(path.toFile()).prefixed("buildServerResources/");
+                compressedBuildServerResources.getPathsIncluded().add(path);
                 fileSets.add(fs);
             }
 
             attachedArchives.add(new ResultArchive("jar", fileSets, resourcesFile));
-            attachedArtifacts.add(new ResultArtifact("jar", classifier, resourcesJar));
+            attachedArtifacts.add(new ResultArtifact("jar", classifier, resourcesJar, null));
         }
 
         List<DependencyNode> agentPluginDependencies = dependencies.get(Boolean.TRUE);
         assembleExplicitAgentDependencies(serverPluginRoot, assemblyContext, agentPluginDependencies);
 
-        assembleKotlinDsl(serverPluginRoot);
+        assembleKotlinDsl(assemblyContext, serverPluginRoot);
 
         if (parameters.isNeedToBuildCommon()) {
+            assemblyContext.getPaths().add(new PathSet(serverPluginRoot.resolve("common")));
             Path commonPath = util.createDir(serverPluginRoot.resolve("common"));
             List<DependencyNode> commonNodes = util.getDependencyNodeList(rootNode, parameters.getCommonSpec(), parameters.getCommonExclusions());
             util.copyTransitiveDependenciesInto(parameters.isFailOnMissingDependencies(), parameters.getIgnoreExtraFilesIn(), assemblyContext, commonNodes, commonPath);
@@ -97,19 +126,29 @@ public class ServerPluginWorkflow {
         return assemblyContext;
     }
 
-    private void prepareDescriptor(Path serverPluginRoot) throws MojoExecutionException, IOException {
-
-        Path destination = serverPluginRoot.resolve(TEAMCITY_PLUGIN_XML);
-        if (!exists(parameters.getDescriptor().getPath().toPath())) {
-            if (parameters.getDescriptor().isFailOnMissing())
-                throw new MojoExecutionException(String.format("`pluginDescriptorPath` must point to teamcity plugin descriptor (%s).", parameters.getDescriptor().getPath()));
-            else {
-                util.createDescriptor("teamcity-server-plugin.vm", destination, parameters);
+    private void prepareDescriptor(AssemblyContext assemblyContext, Path serverPluginRoot) throws MojoExecutionException {
+        File targetDescriptorPath = parameters.getDescriptor().getPath();
+        if (!targetDescriptorPath.exists() && !parameters.getDescriptor().isDoNotGenerate()) {
+            Path generatedPath = util.getWorkDirectory().resolve("teamcity-plugin-generated.xml");
+            try {
+                util.createDescriptor("teamcity-server-plugin.vm", generatedPath, parameters);
+                targetDescriptorPath = generatedPath.toFile();
+            } catch (IOException e) {
+                util.getLog().warn("Error while generating server descriptor: " + generatedPath, e);
             }
-        } else {
-            if (!destination.toFile().exists())
-                Files.copy(parameters.getDescriptor().getPath().toPath(), destination);
         }
+
+        if (targetDescriptorPath.exists()) {
+            try {
+                pluginDescriptorPath = serverPluginRoot.resolve(TEAMCITY_PLUGIN_XML);
+                Files.copy(targetDescriptorPath.toPath(), pluginDescriptorPath, REPLACE_EXISTING);
+            } catch (IOException e) {
+                throw new MojoExecutionException(String.format("Can't copy %s.", targetDescriptorPath), e);
+            }
+        } else if (parameters.getDescriptor().isFailOnMissing()) {
+            throw new MojoExecutionException(String.format("`pluginDescriptorPath` must point to teamcity plugin descriptor (%s).", parameters.getDescriptor().getPath()));
+        }
+        assemblyContext.getPaths().add(new PathSet(serverPluginRoot).with(new FilePathEntry(TEAMCITY_PLUGIN_XML, targetDescriptorPath.toPath()))); // add it anyway if it exists or not
     }
 
 
@@ -122,13 +161,14 @@ public class ServerPluginWorkflow {
         List<Dependency> agentDependencies = pluginDependencies.stream().filter(it -> TEAMCITY_AGENT_PLUGIN_CLASSIFIER.equalsIgnoreCase(it.getClassifier())).collect(Collectors.toList());
         if (!agentDependencies.isEmpty()) {
             Path agentPath = util.createDir(serverPluginRoot.resolve(AGENT_SUBDIR));
-            util.copyDependenciesInto(parameters.isFailOnMissingDependencies(), agentDependencies, agentPath);
+            util.copyDependenciesInto(assemblyContext, parameters.isFailOnMissingDependencies(), agentDependencies, agentPath);
         }
     }
 
-    private void assembleKotlinDsl(Path serverPluginRoot) {
+    private void assembleKotlinDsl(AssemblyContext assemblyContext, Path serverPluginRoot) {
         if (parameters.getKotlinDslDescriptorsPath().exists()) {
             Path kotlinDslPath = util.createDir(serverPluginRoot.resolve("kotlin-dsl"));
+            assemblyContext.getPaths().add(new PathSet(serverPluginRoot.resolve("kotlin-dsl")).with(new DirCopyPathEntry("", kotlinDslPath)));
             try {
                 Files.walk(parameters.getKotlinDslDescriptorsPath().toPath()).forEach(it -> {
                     try {

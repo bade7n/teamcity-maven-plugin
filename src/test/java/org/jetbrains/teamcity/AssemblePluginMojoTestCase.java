@@ -10,14 +10,15 @@ import org.apache.maven.plugin.MojoExecution;
 import org.apache.maven.plugin.testing.MojoRule;
 import org.apache.maven.project.MavenProject;
 import org.apache.maven.repository.internal.MavenWorkspaceReader;
-import org.assertj.core.api.Assertions;
+import org.assertj.core.api.SoftAssertions;
 import org.eclipse.aether.DefaultRepositorySystemSession;
 import org.eclipse.aether.artifact.Artifact;
 import org.eclipse.aether.internal.impl.SimpleLocalRepositoryManagerFactory;
 import org.eclipse.aether.repository.*;
 import org.jetbrains.teamcity.agent.AgentPluginWorkflow;
-import org.jetbrains.teamcity.agent.AssemblyContext;
+import org.jetbrains.teamcity.agent.ArtifactListProvider;
 import org.jetbrains.teamcity.agent.ResultArtifact;
+import org.junit.After;
 import org.junit.Assert;
 import org.junit.Rule;
 import org.junit.Test;
@@ -36,6 +37,12 @@ import static org.assertj.core.api.Assertions.*;
 public class AssemblePluginMojoTestCase {
     @Rule
     public MojoRule rule = new MojoRule();
+    private SoftAssertions sa = new SoftAssertions();
+
+    @After
+    public void after() {
+        sa.assertAll();
+    }
 
     @Test
     public void testMakeAgentArtifact() throws Exception {
@@ -44,14 +51,14 @@ public class AssemblePluginMojoTestCase {
         AgentPluginMojo mojo = (AgentPluginMojo) rule.lookupConfiguredMojo(session, execution);
         mojo.execute();
         StringJoiner sb = new StringJoiner("\n");
-
+        SoftAssertions sa = new SoftAssertions();
         appendTestResult(sb, mojo.getAgentPluginWorkflow());
         Assert.assertEquals("AGENT:\n" +
                 "lib\n" +
                 "lib/commons-beanutils-core-1.8.3.jar\n" +
                 "lib/commons-logging-1.1.1.jar\n" +
                 "teamcity-plugin.xml", sb.toString());
-        filesAreEqual(mojo.getAgentPluginWorkflow().getPluginDescriptorPath(), """
+        filesAreEqual(sa, mojo.getAgentPluginWorkflow().getPluginDescriptorPath(), """
                 <?xml version="1.0" encoding="UTF-8"?>
                 <teamcity-agent-plugin xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
                                        xsi:noNamespaceSchemaLocation="urn:schemas-jetbrains-com:teamcity-agent-plugin-v1-xml">
@@ -64,8 +71,8 @@ public class AssemblePluginMojoTestCase {
                         </dependencies>
                 </teamcity-agent-plugin>
                 """);
-        assertThat(mojo.getIdeaArtifactList()).hasSize(2);
-        filesAreEqual(mojo.getIdeaArtifactList().get(0), """
+        assertThat( mojo.getAgentPluginWorkflow().getIdeaArtifactList()).hasSize(2);
+        filesAreEqual(sa, mojo.getAgentPluginWorkflow().getIdeaArtifactList().get(0), """
                 <component name="ArtifactManager">
                     <artifact name="TC::AGENT::simple2">
                         <output-path>$PROJECT_DIR$/target/teamcity/agent</output-path>
@@ -77,7 +84,7 @@ public class AssemblePluginMojoTestCase {
                     </artifact>
                 </component>
                 """);
-        filesAreEqual(mojo.getIdeaArtifactList().get(1), """
+        filesAreEqual(sa, mojo.getAgentPluginWorkflow().getIdeaArtifactList().get(1), """
                 <component name="ArtifactManager">
                     <artifact name="TC::AGENT::simple2::EXPLODED">
                         <output-path>$PROJECT_DIR$/target/teamcity/agent-unpacked</output-path>
@@ -93,9 +100,10 @@ public class AssemblePluginMojoTestCase {
                     </artifact>
                 </component>
                 """);
+        sa.assertAll();
     }
 
-    private void filesAreEqual(Path path, String expected) throws IOException {
+    private void filesAreEqual(SoftAssertions sa, Path path, String expected) throws IOException {
         String actual = Files.readString(path);
         assertThat(actual).isEqualToIgnoringNewLines(expected);
     }
@@ -109,12 +117,13 @@ public class AssemblePluginMojoTestCase {
         mojo.setFailOnMissingDependencies(false);
         mojo.execute();
         String sb = getTestResult(mojo);
-        Assert.assertEquals("AGENT:\n" +
+        SoftAssertions sa = new SoftAssertions();
+        sa.assertThat(sb).asString().isEqualToIgnoringNewLines("AGENT:\n" +
                 "lib\n" +
                 "lib/commons-beanutils-core-1.8.3.jar\n" +
                 "lib/commons-logging-1.1.1.jar\n" +
                 "teamcity-plugin.xml\n" +
-                "PLUGIN:\n" +
+                "SERVER:\n" +
                 "agent/\n" +
                 "agent/project-to-test.zip\n" +
                 "bundles/\n" +
@@ -124,8 +133,110 @@ public class AssemblePluginMojoTestCase {
                 "server/commons-codec-1.15.jar\n" +
                 "server/commons-logging-1.1.1.jar\n" +
                 "server/project-to-test-1.1-SNAPSHOT.jar\n" +
-                "teamcity-plugin.xml", sb);
+                "teamcity-plugin.xml");
+        filesAreEqual(sa, mojo.getAgentPluginWorkflow().getPluginDescriptorPath(), """
+                <?xml version="1.0" encoding="UTF-8"?>
+                <teamcity-agent-plugin xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                                       xsi:noNamespaceSchemaLocation="urn:schemas-jetbrains-com:teamcity-agent-plugin-v1-xml">
+                        
+                        <plugin-deployment use-separate-classloader="false"/>
+                        <dependencies>
+                                <plugin name="java-dowser"/>
+                                <tool name="ant"/>
+                        </dependencies>
+                </teamcity-agent-plugin>
+                """);
+        filesAreEqual(sa, mojo.getServerPluginWorkflow().getPluginDescriptorPath(), """
+                <?xml version="1.0" encoding="UTF-8"?>
+                <teamcity-plugin xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                                 xsi:noNamespaceSchemaLocation="urn:schemas-jetbrains-com:teamcity-plugin-v1-xml">
+                    <info>
+                        <name>project-to-test</name>
+                        <display-name>Test</display-name>
+                        <version>1.1-SNAPSHOT</version>
+                    </info>
+                    <deployment use-separate-classloader="false" allow-runtime-reload="false" node-responsibilities-aware="false"/>
+                </teamcity-plugin>
+                """);
+        assertIdeaArtifacts(sa, mojo.getAgentPluginWorkflow(), """
+                <component name="ArtifactManager">
+                    <artifact name="TC::AGENT::project-to-test">
+                        <output-path>$PROJECT_DIR$/target/teamcity/agent</output-path>
+                        <root id="root">
+                            <element id="archive" name="project-to-test.zip">
+                                <element artifact-name="TC::AGENT::project-to-test::EXPLODED" id="artifact"/>
+                            </element>
+                        </root>
+                    </artifact>
+                </component>
+                """, """
+                <component name="ArtifactManager">
+                    <artifact name="TC::AGENT::project-to-test::EXPLODED">
+                        <output-path>$PROJECT_DIR$/target/teamcity/agent-unpacked</output-path>
+                        <root id="root">
+                            <element id="directory" name="project-to-test">
+                                <element id="directory" name="lib">
+                                    <element id="library" level="project" name="Maven: commons-beanutils:commons-beanutils-core:1.8.3"/>
+                                    <element id="library" level="project" name="Maven: commons-logging:commons-logging:1.1.1"/>
+                                </element>
+                                <element id="file-copy" output-file-name="teamcity-plugin.xml" path="$PROJECT_DIR$/target/teamcity/teamcity-agent-plugin-generated.xml"/>
+                            </element>
+                        </root>
+                    </artifact>
+                </component>
+                """);
+        assertIdeaArtifacts(sa, mojo.getServerPluginWorkflow(), """
+                <component name="ArtifactManager">
+                    <artifact name="TC::SERVER::project-to-test::EXPLODED">
+                        <output-path>$PROJECT_DIR$/target/teamcity/plugin/project-to-test</output-path>
+                        <root id="root">
+                            <element id="file-copy" output-file-name="teamcity-plugin.xml" path="$PROJECT_DIR$/target/teamcity/teamcity-plugin-generated.xml"/>
+                            <element id="directory" name="server">
+                                <element id="archive" name="project-to-test-1.1-SNAPSHOT.jar">
+                                    <element id="module-output" name="project-to-test"/>
+                                </element>
+                                <element id="library" level="project" name="Maven: commons-beanutils:commons-beanutils-core:1.8.3"/>
+                                <element id="library" level="project" name="Maven: commons-logging:commons-logging:1.1.1"/>
+                                <element id="library" level="project" name="Maven: commons-codec:commons-codec:1.15"/>
+                            </element>
+                            <element id="directory" name="agent">
+                                <element id="archive" name="project-to-test.zip">
+                                    <element artifact-name="TC::AGENT::project-to-test" id="artifact"/>
+                                </element>
+                            </element>
+                        </root>
+                    </artifact>
+                </component>
+                """, """
+                <component name="ArtifactManager">
+                    <artifact name="TC::SERVER::project-to-test::4IDEA">
+                        <output-path>$PROJECT_DIR$/target/teamcity/plugin</output-path>
+                        <root id="root">
+                            <element id="directory" name="project-to-test">
+                                <element artifact-name="TC::SERVER::project-to-test::EXPLODED" id="artifact"/>
+                            </element>
+                        </root>
+                    </artifact>
+                </component>
+                """, """
+                <component name="ArtifactManager">
+                    <artifact name="TC::SERVER::project-to-test">
+                        <output-path>$PROJECT_DIR$/target/teamcity/dist</output-path>
+                        <root id="root">
+                            <element id="archive" name="project-to-test.zip">
+                                <element artifact-name="TC::SERVER::project-to-test::EXPLODED" id="artifact"/>
+                            </element>
+                        </root>
+                    </artifact>
+                </component>
+                """);
+    }
 
+    private void assertIdeaArtifacts(SoftAssertions sa, ArtifactListProvider apl, String... s) throws IOException {
+        assertThat(apl.getIdeaArtifactList()).hasSize(s.length);
+        for (int i = 0; i < s.length;i++) {
+            filesAreEqual(sa, apl.getIdeaArtifactList().get(i), s[i]);
+        }
     }
 
     @Test
@@ -136,7 +247,7 @@ public class AssemblePluginMojoTestCase {
         mojo.setFailOnMissingDependencies(false);
         mojo.execute();
         String sb = getTestResult(mojo);
-        Assert.assertEquals("PLUGIN:\n" +
+        Assert.assertEquals("SERVER:\n" +
                 "agent/\n" +
                 "agent/moduleA.zip\n" +
                 "server/\n" +
@@ -156,18 +267,91 @@ public class AssemblePluginMojoTestCase {
         mojo.setFailOnMissingDependencies(false);
         mojo.execute();
         String sb = getTestResult(mojo);
-        Assert.assertEquals("AGENT:\n" +
-                "commons-beanutils-core-1.8.3.jar\n" +
-                "commons-logging-1.1.1.jar\n" +
-                "moduleA-1.1-SNAPSHOT.jar\n" +
-                "moduleB-1.1-SNAPSHOT.jar\n" +
-                "teamcity-plugin.xml\n" +
-                "PLUGIN:\n" +
-                "agent/\n" +
-                "agent/multi-module-to-test.zip\n" +
-                "server/\n" +
-                "server/moduleB-1.1-SNAPSHOT.jar\n" +
-                "teamcity-plugin.xml", sb);
+        sa.assertThat(sb).isEqualToIgnoringCase("""
+                AGENT:
+                lib
+                lib/commons-beanutils-core-1.8.3.jar
+                lib/commons-logging-1.1.1.jar
+                lib/moduleA-1.1-SNAPSHOT.jar
+                lib/moduleB-1.1-SNAPSHOT.jar
+                teamcity-plugin.xml
+                SERVER:
+                agent/
+                agent/multi-module-to-test.zip
+                server/
+                server/moduleB-1.1-SNAPSHOT.jar
+                teamcity-plugin.xml""");
+        assertIdeaArtifacts(sa, mojo.getAgentPluginWorkflow(), """
+                <component name="ArtifactManager">
+                    <artifact name="TC::AGENT::multi-module-to-test">
+                        <output-path>$PROJECT_DIR$/target/teamcity/agent</output-path>
+                        <root id="root">
+                            <element id="archive" name="multi-module-to-test.zip">
+                                <element artifact-name="TC::AGENT::multi-module-to-test::EXPLODED" id="artifact"/>
+                            </element>
+                        </root>
+                    </artifact>
+                </component>""", """
+                <component name="ArtifactManager">
+                    <artifact name="TC::AGENT::multi-module-to-test::EXPLODED">
+                        <output-path>$PROJECT_DIR$/target/teamcity/agent-unpacked</output-path>
+                        <root id="root">
+                            <element id="directory" name="multi-module-to-test">
+                                <element id="directory" name="lib">
+                                    <element id="archive" name="moduleA-1.1-SNAPSHOT.jar">
+                                        <element id="module-output" name="moduleA"/>
+                                    </element>
+                                    <element id="archive" name="moduleB-1.1-SNAPSHOT.jar">
+                                        <element id="module-output" name="moduleB"/>
+                                    </element>
+                                    <element id="library" level="project" name="Maven: commons-beanutils:commons-beanutils-core:1.8.3"/>
+                                    <element id="library" level="project" name="Maven: commons-logging:commons-logging:1.1.1"/>
+                                </element>
+                                <element id="file-copy" output-file-name="teamcity-plugin.xml" path="$PROJECT_DIR$/target/teamcity/teamcity-agent-plugin-generated.xml"/>
+                            </element>
+                        </root>
+                    </artifact>
+                </component>""");
+        assertIdeaArtifacts(sa, mojo.getServerPluginWorkflow(), """
+                <component name="ArtifactManager">
+                    <artifact name="TC::SERVER::multi-module-to-test::EXPLODED">
+                        <output-path>$PROJECT_DIR$/target/teamcity/plugin/multi-module-to-test</output-path>
+                        <root id="root">
+                            <element id="file-copy" output-file-name="teamcity-plugin.xml" path="$PROJECT_DIR$/target/teamcity/teamcity-plugin-generated.xml"/>
+                            <element id="directory" name="server">
+                                <element id="archive" name="moduleB-1.1-SNAPSHOT.jar">
+                                    <element id="module-output" name="moduleB"/>
+                                </element>
+                            </element>
+                            <element id="directory" name="agent">
+                                <element id="archive" name="multi-module-to-test.zip">
+                                    <element artifact-name="TC::AGENT::multi-module-to-test" id="artifact"/>
+                                </element>
+                            </element>
+                        </root>
+                    </artifact>
+                </component>""", """
+                <component name="ArtifactManager">
+                    <artifact name="TC::SERVER::multi-module-to-test::4IDEA">
+                        <output-path>$PROJECT_DIR$/target/teamcity/plugin</output-path>
+                        <root id="root">
+                            <element id="directory" name="multi-module-to-test">
+                                <element artifact-name="TC::SERVER::multi-module-to-test::EXPLODED" id="artifact"/>
+                            </element>
+                        </root>
+                    </artifact>
+                </component>
+                """, """
+                <component name="ArtifactManager">
+                    <artifact name="TC::SERVER::multi-module-to-test">
+                        <output-path>$PROJECT_DIR$/target/teamcity/dist</output-path>
+                        <root id="root">
+                            <element id="archive" name="multi-module-to-test.zip">
+                                <element artifact-name="TC::SERVER::multi-module-to-test::EXPLODED" id="artifact"/>
+                            </element>
+                        </root>
+                    </artifact>
+                </component>""");
     }
 
     private void appendTestResult(StringJoiner sb, AgentPluginWorkflow apw) throws IOException {

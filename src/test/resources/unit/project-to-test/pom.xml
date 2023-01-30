@@ -37,7 +37,6 @@
                         <spec>commons-beanutils:commons-beanutils-core:*:*</spec>
                         <exclusions>commons-codec</exclusions>
                         <descriptor>
-                            <generate>true</generate>
                             <toolDependencies>
                                 <tool>ant</tool>
                             </toolDependencies>

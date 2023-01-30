@@ -5,6 +5,7 @@ import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugin.MojoFailureException;
 import org.apache.maven.shared.dependency.graph.DependencyNode;
 import org.jetbrains.teamcity.Agent;
+import org.jetbrains.teamcity.ArtifactBuilder;
 
 import java.io.File;
 import java.io.IOException;
@@ -17,7 +18,7 @@ import static java.nio.file.StandardCopyOption.REPLACE_EXISTING;
 import static org.jetbrains.teamcity.agent.WorkflowUtil.TEAMCITY_PLUGIN_XML;
 
 @Data
-public class AgentPluginWorkflow {
+public class AgentPluginWorkflow implements ArtifactListProvider {
     public static final String TEAMCITY_AGENT_PLUGIN_CLASSIFIER = "teamcity-agent-plugin";
     private final DependencyNode rootNode;
     private final Agent parameters;
@@ -32,18 +33,21 @@ public class AgentPluginWorkflow {
     private Path agentPath;
     private Path pluginDescriptorPath;
 
+    private final List<Path> ideaArtifactList = new ArrayList<>();
+
     public void execute() throws MojoExecutionException {
         if (parameters.isNeedToBuild()) {
             AssemblyContext assemblyContext = buildAgentPlugin(rootNode);
             assemblyContexts.add(assemblyContext);
         }
+        ideaArtifactList.addAll(new ArtifactBuilder(util.getLog(), util).build(getAssemblyContexts()));
     }
 
 
     public AssemblyContext buildAgentPlugin(DependencyNode rootNode) throws MojoExecutionException {
         AssemblyContext assemblyContext = new AssemblyContext();
-        String ideaArtifactBaseName = "TC::AGENT::" + parameters.getPluginName();
-        assemblyContext.setName(ideaArtifactBaseName + "::EXPLODED");
+        String ideaArtifactBaseName = getIdeaArtifactBaseName(parameters.getPluginName());
+        assemblyContext.setName(getExplodedName(ideaArtifactBaseName));
         Path agentUnpacked = workDirectory.resolve("agent-unpacked");
         agentPath  = util.createDir(agentUnpacked.resolve(parameters.getPluginName()));
         assemblyContext.setRoot(agentUnpacked);
@@ -95,7 +99,7 @@ public class AgentPluginWorkflow {
                 assemblyContexts.add(zipAssemblyContext.cloneWithRoot(agentPluginPath));
 
                 Path agentPart = util.zipFile(agentUnpacked, Files.createDirectories(agentPluginPath), zipName);
-                attachedArtifacts.add(new ResultArtifact("zip", "teamcity-agent-plugin", agentPart));
+                attachedArtifacts.add(new ResultArtifact("zip", "teamcity-agent-plugin", agentPart, zipAssemblyContext));
             } catch (IOException | MojoFailureException e) {
                 util.getLog().warn("Error while packing agent part to: " + agentPluginPath, e);
             }
@@ -103,5 +107,15 @@ public class AgentPluginWorkflow {
         return assemblyContext.cloneWithRoot(agentUnpacked);
     }
 
+    public static String getIdeaArtifactExplodedName(String pluginName) {
+        return getExplodedName(getIdeaArtifactBaseName(pluginName));
+    }
 
+    public static String getExplodedName(String ideaArtifactBaseName) {
+        return ideaArtifactBaseName + "::EXPLODED";
+    }
+
+    public static String getIdeaArtifactBaseName(String pluginName) {
+        return "TC::AGENT::" + pluginName;
+    }
 }

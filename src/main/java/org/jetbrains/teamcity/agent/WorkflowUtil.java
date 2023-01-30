@@ -25,7 +25,6 @@ import org.apache.velocity.VelocityContext;
 import org.apache.velocity.app.VelocityEngine;
 import org.apache.velocity.runtime.RuntimeConstants;
 import org.apache.velocity.runtime.resource.loader.ClasspathResourceLoader;
-import org.jetbrains.teamcity.Descriptor;
 import org.jetbrains.teamcity.MultipleDependencyNodeVisitor;
 import org.jetbrains.teamcity.SkipFilteringDependencyNodeVisitor;
 import org.jetbrains.teamcity.data.ResolvedArtifact;
@@ -353,7 +352,8 @@ public class WorkflowUtil {
         }
     }
 
-    public List<ResolvedArtifact> copyDependenciesInto(boolean failOnMissingDependencies, List<Dependency> nodes, Path toPath) throws MojoExecutionException {
+    public List<ResolvedArtifact> copyDependenciesInto(AssemblyContext assemblyContext, boolean failOnMissingDependencies, List<Dependency> nodes, Path toPath) throws MojoExecutionException {
+        assemblyContext.getPaths().add(new PathSet(toPath));
         List<Path> destinations = new ArrayList<>();
         List<ResolvedArtifact> result = new ArrayList<>();
         for (Dependency node : nodes) {
@@ -365,10 +365,23 @@ public class WorkflowUtil {
             destinations.add(destination);
             try {
                 internalCopy(failOnMissingDependencies, source.getFile(), destination, ra.isReactorProject());
+                assemblyContext.addToLastPathSet(new ArtifactPathEntry(name, AgentPluginWorkflow.getIdeaArtifactExplodedName(name)));
             } catch (IOException e) {
                 getLog().warn("Error while copying " + source + " to " + destination, e);
             }
         }
         return result;
     }
+
+    public AssemblyContext createAssemblyContext(String prefix, String suffix, Path root) {
+        AssemblyContext assemblyContext = new AssemblyContext();
+        if (suffix != null && !suffix.isBlank())
+            suffix = "::"+suffix;
+        else
+            suffix = "";
+        assemblyContext.setName("TC::" + prefix + "::" + getProject().getArtifactId() + suffix);
+        assemblyContext.setRoot(root);
+        return assemblyContext;
+    }
+
 }

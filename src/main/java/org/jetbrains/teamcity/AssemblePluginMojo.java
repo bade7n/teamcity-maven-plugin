@@ -119,9 +119,8 @@ public class AssemblePluginMojo extends BaseTeamCityMojo {
             agentPluginWorkflow = new AgentPluginWorkflow(rootNode, agent, util, getWorkDirectory().toPath());
             agentPluginWorkflow.execute();
             attachArtifacts(agentPluginWorkflow.getAttachedArtifacts());
-            buildArtifact(agentPluginWorkflow.getAssemblyContexts());
 
-            serverPluginWorkflow = new ServerPluginWorkflow(rootNode, server, util, getProject());
+            serverPluginWorkflow = new ServerPluginWorkflow(rootNode, server, util, getProject(), getWorkDirectory().toPath());
             serverPluginWorkflow.getAgentAttachedRuntimeArtifacts().addAll(agentPluginWorkflow.getAttachedArtifacts());
             findPluginConfiguration().ifPresent(plugin -> serverPluginWorkflow.getPluginDependencies().addAll(plugin.getDependencies()));
             serverPluginWorkflow.execute();

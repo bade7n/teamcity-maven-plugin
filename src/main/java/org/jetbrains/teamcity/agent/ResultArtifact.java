@@ -9,4 +9,6 @@ public class ResultArtifact {
     private final String type;
     private final String classifier;
     private final Path file;
+    private final AssemblyContext artifactContext;
+
 }

@@ -15,13 +15,13 @@
         </vendor>
 #end
     </info>
-    <deployment use-separate-classloader="${param.useSeparateClassloader}" allow-runtime-reload="${param.allowRuntimeReload}" node-responsibilities-aware="${param.nodeResponsibilitiesAware}"/>
-    #if( $param.pluginDependencies || $param.toolDependencies)
+    <deployment use-separate-classloader="${param.descriptor.useSeparateClassloader}" allow-runtime-reload="${param.descriptor.allowRuntimeReload}" node-responsibilities-aware="${param.descriptor.nodeResponsibilitiesAware}"/>
+    #if( $param.descriptor.pluginDependencies || $param.descriptor.toolDependencies)
     <dependencies>
-        #foreach( $dependency in $param.pluginDependencies )
+        #foreach( $dependency in $param.descriptor.pluginDependencies )
         <plugin name="${dependency}"/>
         #end
-        #foreach( $dependency in $param.toolDependencies )
+        #foreach( $dependency in $param.descriptor.toolDependencies )
             <tool name="${dependency}"/>
         #end
     </dependencies>

@@ -40,8 +40,9 @@
                 <artifactId>teamcity-maven-plugin</artifactId>
                 <version>1.6.4-SNAPSHOT</version>
                 <configuration>
-                    <agent></agent>
-                    <server>*</server>
+                    <server>
+                        <spec>.</spec>
+                    </server>
                 </configuration>
                 <executions>
                     <execution>

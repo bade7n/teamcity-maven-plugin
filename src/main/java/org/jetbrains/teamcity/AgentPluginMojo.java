@@ -47,7 +47,6 @@ public class AgentPluginMojo extends BaseTeamCityMojo {
 
     private AgentPluginWorkflow agentPluginWorkflow;
 
-    private List<Path> ideaArtifactList;
 
     @Override
     public void execute() throws MojoExecutionException, MojoFailureException {
@@ -60,7 +59,6 @@ public class AgentPluginMojo extends BaseTeamCityMojo {
             agentPluginWorkflow = new AgentPluginWorkflow(rootNode, agent, util, getWorkDirectory().toPath());
             agentPluginWorkflow.execute();
             attachArtifacts(agentPluginWorkflow.getAttachedArtifacts());
-            ideaArtifactList = buildArtifact(agentPluginWorkflow.getAssemblyContexts());
         } catch (IOException e) {
             getLog().warn(e);
             throw new MojoFailureException("Error while assembly execution", e);

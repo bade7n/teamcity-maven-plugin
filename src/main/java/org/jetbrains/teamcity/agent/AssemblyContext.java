@@ -18,6 +18,10 @@ public class AssemblyContext {
         paths.get(paths.size()-1).with(entry);
     }
 
+    public AssemblyContext cloneWithRoot() {
+        return cloneWithRoot(root);
+    }
+
     public AssemblyContext cloneWithRoot(Path base) {
         AssemblyContext ac = new AssemblyContext();
         ac.setName(getName());
