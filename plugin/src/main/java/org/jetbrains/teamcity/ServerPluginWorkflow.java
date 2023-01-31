@@ -1,6 +1,7 @@
 package org.jetbrains.teamcity;
 
 import lombok.Data;
+import org.apache.maven.artifact.Artifact;
 import org.apache.maven.model.Dependency;
 import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugin.MojoFailureException;
@@ -46,9 +47,9 @@ public class ServerPluginWorkflow implements ArtifactListProvider {
     private final List<Path> ideaArtifactList = new ArrayList<>();
 
     public void execute() throws MojoExecutionException, IOException, MojoFailureException {
-        Path serverPluginRoot = util.createDir(util.getWorkDirectory().resolve("plugin").resolve(parameters.getPluginName()));
-        Path agentPluginRoot = util.createDir(serverPluginRoot.resolve("agent"));
         if (parameters.isNeedToBuild()) {
+            Path serverPluginRoot = util.createDir(util.getWorkDirectory().resolve("plugin").resolve(parameters.getPluginName()));
+            Path agentPluginRoot = util.createDir(serverPluginRoot.resolve("agent"));
             AssemblyContext assemblyContext = buildServerPlugin(serverPluginRoot, rootNode);
 
             for (ResultArtifact ra : agentAttachedRuntimeArtifacts) {
@@ -81,8 +82,8 @@ public class ServerPluginWorkflow implements ArtifactListProvider {
         prepareDescriptor(assemblyContext, serverPluginRoot);
 
         Path serverPath = util.createDir(serverPluginRoot.resolve("server"));
-        List<DependencyNode> nodes = util.getDependencyNodeList(rootNode, parameters.getSpec(), parameters.getExclusions());
-        Map<Boolean, List<DependencyNode>> dependencies = nodes.stream().collect(Collectors.partitioningBy(it -> "teamcity-agent-plugin".equalsIgnoreCase(it.getArtifact().getClassifier())));
+        List<Artifact> nodes = util.getDependencyNodeList(rootNode, parameters.getSpec(), parameters.getExclusions());
+        Map<Boolean, List<Artifact>> dependencies = nodes.stream().collect(Collectors.partitioningBy(it -> "teamcity-agent-plugin".equalsIgnoreCase(it.getClassifier())));
         assemblyContext.getPaths().add(new PathSet(serverPath));
         util.copyTransitiveDependenciesInto(parameters.isFailOnMissingDependencies(), parameters.getIgnoreExtraFilesIn(), assemblyContext, dependencies.get(Boolean.FALSE), serverPath);
         if (!parameters.getBuildServerResources().isEmpty()) {
@@ -107,7 +108,7 @@ public class ServerPluginWorkflow implements ArtifactListProvider {
             attachedArtifacts.add(new ResultArtifact("jar", classifier, resourcesJar, null));
         }
 
-        List<DependencyNode> agentPluginDependencies = dependencies.get(Boolean.TRUE);
+        List<Artifact> agentPluginDependencies = dependencies.get(Boolean.TRUE);
         assembleExplicitAgentDependencies(serverPluginRoot, assemblyContext, agentPluginDependencies);
 
         assembleKotlinDsl(assemblyContext, serverPluginRoot);
@@ -115,7 +116,7 @@ public class ServerPluginWorkflow implements ArtifactListProvider {
         if (parameters.isNeedToBuildCommon()) {
             assemblyContext.getPaths().add(new PathSet(serverPluginRoot.resolve("common")));
             Path commonPath = util.createDir(serverPluginRoot.resolve("common"));
-            List<DependencyNode> commonNodes = util.getDependencyNodeList(rootNode, parameters.getCommonSpec(), parameters.getCommonExclusions());
+            List<Artifact> commonNodes = util.getDependencyNodeList(rootNode, parameters.getCommonSpec(), parameters.getCommonExclusions());
             util.copyTransitiveDependenciesInto(parameters.isFailOnMissingDependencies(), parameters.getIgnoreExtraFilesIn(), assemblyContext, commonNodes, commonPath);
         }
         return assemblyContext;
@@ -147,7 +148,7 @@ public class ServerPluginWorkflow implements ArtifactListProvider {
     }
 
 
-    private void assembleExplicitAgentDependencies(Path serverPluginRoot, AssemblyContext assemblyContext, List<DependencyNode> agentPluginDependencies) throws MojoExecutionException {
+    private void assembleExplicitAgentDependencies(Path serverPluginRoot, AssemblyContext assemblyContext, List<Artifact> agentPluginDependencies) throws MojoExecutionException {
         if (agentPluginDependencies != null && !agentPluginDependencies.isEmpty()) {
             Path agentPath = util.createDir(serverPluginRoot.resolve(AGENT_SUBDIR));
             util.copyTransitiveDependenciesInto(parameters.isFailOnMissingDependencies(), parameters.getIgnoreExtraFilesIn(), assemblyContext, agentPluginDependencies, agentPath);

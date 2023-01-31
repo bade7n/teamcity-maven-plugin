@@ -10,6 +10,7 @@ import java.io.File;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 
 @Data
 @NoArgsConstructor
@@ -37,7 +38,9 @@ public class Server {
     @Parameter(defaultValue = "true", property = "failOnMissingDependencies")
     private boolean failOnMissingDependencies = true;
 
-    public void setDefaultValues(MavenProject project, File projectBuildOutputDirectory) {
+    public void setDefaultValues(String spec, MavenProject project, File projectBuildOutputDirectory) {
+        if (Objects.isNull(this.spec))
+            this.spec = spec;
         if (pluginName == null)
             pluginName = project.getArtifactId();
         if (exclusions == null)

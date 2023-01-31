@@ -1,6 +1,7 @@
 package org.jetbrains.teamcity;
 
 import lombok.Getter;
+import lombok.Setter;
 import org.apache.maven.archiver.MavenArchiveConfiguration;
 import org.apache.maven.archiver.MavenArchiver;
 import org.apache.maven.artifact.Artifact;
@@ -11,6 +12,7 @@ import org.apache.maven.lifecycle.LifeCyclePluginAnalyzer;
 import org.apache.maven.lifecycle.LifecycleExecutor;
 import org.apache.maven.model.Dependency;
 import org.apache.maven.model.Plugin;
+import org.apache.maven.model.PluginExecution;
 import org.apache.maven.plugin.*;
 import org.apache.maven.plugin.descriptor.PluginDescriptor;
 import org.apache.maven.plugins.annotations.*;
@@ -25,6 +27,7 @@ import org.apache.maven.shared.dependency.graph.filter.AndDependencyNodeFilter;
 import org.apache.maven.shared.dependency.graph.filter.ArtifactDependencyNodeFilter;
 import org.apache.maven.shared.dependency.graph.filter.DependencyNodeFilter;
 import org.apache.maven.shared.dependency.graph.traversal.*;
+import org.codehaus.plexus.util.xml.Xpp3Dom;
 import org.codehaus.plexus.archiver.Archiver;
 import org.codehaus.plexus.archiver.FileSet;
 import org.codehaus.plexus.archiver.jar.JarArchiver;
@@ -93,13 +96,15 @@ public class AssemblePluginMojo extends BaseTeamCityMojo {
      */
     @Parameter(property = "agent")
     @Getter
-    private Agent agent = new Agent();
+    @Setter
+    private Agent agent;
 
     /**
      * TeamCity Server configuration parameters.
      */
     @Parameter(property = "server")
     @Getter
+    @Setter
     private Server server;
 
     @Getter
@@ -134,8 +139,30 @@ public class AssemblePluginMojo extends BaseTeamCityMojo {
     }
 
     private void setDefaultconfigurationValues() {
-        agent.setDefaultValues(getProject(), getProjectBuildOutputDirectory());
-        server.setDefaultValues(getProject(), getProjectBuildOutputDirectory());
+        PluginExecution pluginExecution = findPluginExecution();
+        if (pluginExecution != null) {
+            Xpp3Dom configuration = (Xpp3Dom) pluginExecution.getConfiguration();
+            for (Xpp3Dom node:configuration.getChildren()) {
+                if ("agent".equalsIgnoreCase(node.getName()))
+                    agent.setDefaultValues(".", getProject(), getProjectBuildOutputDirectory());
+                if ("server".equalsIgnoreCase(node.getName()))
+                    server.setDefaultValues(".", getProject(), getProjectBuildOutputDirectory());
+            }
+        }
+    }
+
+    private PluginExecution findPluginExecution() {
+        Optional<Plugin> plugin = findPluginConfiguration();
+        if (plugin.isPresent()) {
+            List<PluginExecution> executions = plugin.get().getExecutions();
+            if (executions.size() == 1)
+                return executions.get(0);
+            for (PluginExecution e : executions) {
+                if (Objects.equals(execution.getExecutionId(), e.getId()))
+                    return e;
+            }
+        }
+        return null;
     }
 
     private Optional<Plugin> findPluginConfiguration() {

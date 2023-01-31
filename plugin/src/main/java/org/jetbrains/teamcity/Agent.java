@@ -33,7 +33,9 @@ public class Agent {
         return spec != null && !spec.isBlank();
     }
 
-    public void setDefaultValues(MavenProject project, File projectBuildOutputDirectory) {
+    public void setDefaultValues(String spec, MavenProject project, File projectBuildOutputDirectory) {
+        if (Objects.isNull(this.spec))
+            this.spec = spec;
         if (pluginName == null) {
             pluginName = project.getArtifactId();
             artifactId = project.getArtifactId();

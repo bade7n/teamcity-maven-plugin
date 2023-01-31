@@ -54,7 +54,7 @@ public class AgentPluginMojo extends BaseTeamCityMojo {
         try {
             WorkflowUtil util = getWorkflowUtil();
             Agent agent = new Agent(spec, pluginName, exclusions, tool, failOnMissingDependencies, ignoreExtraFilesIn, descriptor, getProject().getArtifactId());
-            agent.setDefaultValues(getProject(), getProjectBuildOutputDirectory());
+            agent.setDefaultValues(".", getProject(), getProjectBuildOutputDirectory());
             DependencyNode rootNode = findRootNode(util);
             agentPluginWorkflow = new AgentPluginWorkflow(rootNode, agent, util, getWorkDirectory().toPath());
             agentPluginWorkflow.execute();

@@ -1,6 +1,7 @@
 package org.jetbrains.teamcity.agent;
 
 import lombok.Data;
+import org.apache.maven.artifact.Artifact;
 import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugin.MojoFailureException;
 import org.apache.maven.shared.dependency.graph.DependencyNode;
@@ -65,7 +66,7 @@ public class AgentPluginWorkflow implements ArtifactListProvider {
          */
         Path agentLibPath = agentPath.resolve("lib");
         assemblyContext.getPaths().add(new PathSet(agentLibPath));
-        List<DependencyNode> nodesCopied = util.copyTransitiveDependenciesInto(parameters.isFailOnMissingDependencies(), parameters.getIgnoreExtraFilesIn(), assemblyContext, rootNode, parameters.getSpec(), util.createDir(agentLibPath), parameters.getExclusions());
+        List<Artifact> nodesCopied = util.copyTransitiveDependenciesInto(parameters.isFailOnMissingDependencies(), parameters.getIgnoreExtraFilesIn(), assemblyContext, rootNode, parameters.getSpec(), util.createDir(agentLibPath), parameters.getExclusions());
         if (!nodesCopied.isEmpty()) {
 
             File targetDescriptorPath = parameters.getDescriptor().getPath();

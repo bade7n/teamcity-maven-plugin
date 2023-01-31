@@ -46,18 +46,9 @@
                         </descriptor>
                     </agent>
                     <server>
-                        <spec>*</spec>
                     </server>
                     <ignoreExtraFilesIn>lib</ignoreExtraFilesIn>
                 </configuration>
-                <executions>
-                    <execution>
-                        <id>build-teamcity-plugin</id>
-                        <goals>
-                            <goal>build</goal>
-                        </goals>
-                    </execution>
-                </executions>
             </plugin>
         </plugins>
     </build>

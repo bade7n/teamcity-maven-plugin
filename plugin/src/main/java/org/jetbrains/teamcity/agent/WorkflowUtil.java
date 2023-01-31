@@ -89,26 +89,26 @@ public class WorkflowUtil {
         }
     }
 
-    protected List<DependencyNode> copyTransitiveDependenciesInto(boolean failOnMissingDependencies, String ignoreExtraFilesIn, AssemblyContext assemblyContext, DependencyNode rootNode, String spec, Path toPath, List<String> excludes) throws MojoExecutionException {
-        List<DependencyNode> nodes = getDependencyNodeList(rootNode, spec, excludes);
+    protected List<Artifact> copyTransitiveDependenciesInto(boolean failOnMissingDependencies, String ignoreExtraFilesIn, AssemblyContext assemblyContext, DependencyNode rootNode, String spec, Path toPath, List<String> excludes) throws MojoExecutionException {
+        List<Artifact> nodes = getDependencyNodeList(rootNode, spec, excludes);
         List<ResolvedArtifact> artifacts = copyTransitiveDependenciesInto(failOnMissingDependencies, ignoreExtraFilesIn, assemblyContext, nodes, toPath);
         return nodes;
     }
 
-    public List<ResolvedArtifact> copyTransitiveDependenciesInto(boolean failOnMissingDependencies, String ignoreExtraFilesIn, AssemblyContext assemblyContext, List<DependencyNode> nodes, Path toPath) throws MojoExecutionException {
+    public List<ResolvedArtifact> copyTransitiveDependenciesInto(boolean failOnMissingDependencies, String ignoreExtraFilesIn, AssemblyContext assemblyContext, List<Artifact> nodes, Path toPath) throws MojoExecutionException {
         List<Path> destinations = new ArrayList<>();
         List<ResolvedArtifact> result = new ArrayList<>();
-        for (DependencyNode node : nodes) {
-            Artifact alternativeArtifact = findAlternativeArtifacts(node.getArtifact());
+        for (Artifact node : nodes) {
+            Artifact alternativeArtifact = findAlternativeArtifacts(node);
             if (alternativeArtifact == null)
                 continue;
             org.eclipse.aether.artifact.Artifact source = resolve.resolve(alternativeArtifact);
-            ResolvedArtifact ra = new ResolvedArtifact(source, isReactorProject(node.getArtifact()));
+            ResolvedArtifact ra = new ResolvedArtifact(source, isReactorProject(node));
             result.add(ra);
             String name = ra.getFileName();
             Path destination = toPath.resolve(name);
             destinations.add(destination);
-            assemblyContext.addToLastPathSet(new DependencyPathEntry(node.getArtifact(), ra.isReactorProject(), destination.getFileName().toString(), source.getFile().toPath()));
+            assemblyContext.addToLastPathSet(new DependencyPathEntry(node, ra.isReactorProject(), destination.getFileName().toString(), source.getFile().toPath()));
             try {
                 internalCopy(failOnMissingDependencies, source.getFile(), destination, ra.isReactorProject());
             } catch (IOException e) {
@@ -169,7 +169,7 @@ public class WorkflowUtil {
     }
 
 
-    public List<DependencyNode> getDependencyNodeList(DependencyNode rootNode, String spec, List<String> exclusions) {
+    public List<Artifact> getDependencyNodeList(DependencyNode rootNode, String spec, List<String> exclusions) {
         List<DependencyNode> nodes;
         // looking for the nodes specified by user
         if (Arrays.asList("*", ".").contains(spec)) {
@@ -183,9 +183,7 @@ public class WorkflowUtil {
         CollectingDependencyNodeVisitor transitiveCollectingVisitor = new CollectingDependencyNodeVisitor();
         MultipleDependencyNodeVisitor mdnv = new MultipleDependencyNodeVisitor(Arrays.asList(transitiveCollectingVisitor, getSerializingDependencyNodeVisitor(writer)));
         DependencyNodeFilter exclusionFilter = new ArtifactDependencyNodeFilter(new StrictPatternExcludesArtifactFilter(exclusions));
-        AndDependencyNodeFilter andDependencyNodeFilter = new AndDependencyNodeFilter(exclusionFilter, it -> {
-            return isParentClassifierIn(it, TEAMCITY_PLUGIN_CLASSIFIER, TEAMCITY_AGENT_PLUGIN_CLASSIFIER);
-        });
+        AndDependencyNodeFilter andDependencyNodeFilter = new AndDependencyNodeFilter(exclusionFilter, it -> isParentClassifierIn(it, TEAMCITY_PLUGIN_CLASSIFIER, TEAMCITY_AGENT_PLUGIN_CLASSIFIER));
         SkipFilteringDependencyNodeVisitor visitor = new SkipFilteringDependencyNodeVisitor(mdnv, andDependencyNodeFilter);
         nodes.forEach(it -> it.accept(visitor));
         getLog().info("Dependencies according to spec " + spec + ":\n" + writer);
@@ -204,12 +202,12 @@ public class WorkflowUtil {
                 result.add(node);
             }
         }
-        return result;
+        return result.stream().map(DependencyNode::getArtifact).distinct().collect(Collectors.toList());
     }
 
     private boolean isParentClassifierIn(DependencyNode it, String s, String s1) {
-        if (it.getParent() != null && (Objects.equals("teamcity-plugin", it.getParent().getArtifact().getClassifier()) ||
-                Objects.equals("teamcity-agent-plugin", it.getParent().getArtifact().getClassifier())))
+        if (it.getParent() != null && (Objects.equals(s, it.getParent().getArtifact().getClassifier()) ||
+                Objects.equals(s1, it.getParent().getArtifact().getClassifier())))
             return false;
         return true;
     }
