@@ -43,7 +43,7 @@
             <plugin>
                 <groupId>org.jetbrains.teamcity</groupId>
                 <artifactId>teamcity-maven-plugin</artifactId>
-                <version>${project.version}</version>
+                <version>1.6.4-SNAPSHOT</version>
                 <configuration>
                     <agent>
                         <spec>:moduleA:*:*</spec>

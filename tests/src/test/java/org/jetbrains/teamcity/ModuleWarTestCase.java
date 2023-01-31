@@ -19,7 +19,8 @@ public class ModuleWarTestCase extends BasePluginTestCase {
         mojo.execute();
         StringJoiner sb = new StringJoiner("\n");
         appendTestResult(sb, mojo.getServerPluginWorkflow());
-        assertThat("""
+        assertThat(
+                """
                 SERVER:
                 agent/
                 agent/module-agent.zip
