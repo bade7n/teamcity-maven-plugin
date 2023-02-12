@@ -2,6 +2,7 @@ package org.jetbrains.teamcity;
 
 import com.google.common.base.Strings;
 import lombok.Data;
+import org.apache.commons.io.FileUtils;
 import org.apache.maven.artifact.Artifact;
 import org.apache.maven.plugin.logging.Log;
 import org.jetbrains.teamcity.agent.*;
@@ -19,6 +20,7 @@ import javax.xml.transform.TransformerFactory;
 import javax.xml.transform.dom.DOMSource;
 import javax.xml.transform.stream.StreamResult;
 import java.io.ByteArrayOutputStream;
+import java.io.File;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
@@ -73,9 +75,12 @@ public class ArtifactBuilder {
                 location.getChilds().add(new ArtifactNode(pe.getName(), type, pe));
             }
         }
-        Path destinationFile = intellijProject.resolve(".idea").resolve("artifacts").resolve(ac.getName().replaceAll("[^\\w\\d]", "_") + ".xml");
+        String artifactFileName = ac.getName().replaceAll("[^\\w\\d]", "_") + ".xml";
+        Path destinationFile = intellijProject.resolve(".idea").resolve("artifacts").resolve(artifactFileName);
         util.createDir(destinationFile.getParent());
-        serializeIntoXml(root, ac, params, destinationFile);
+        Path source = util.getWorkDirectory().resolve(artifactFileName);
+        serializeIntoXml(root, ac, params, source);
+        FileUtils.copyFile(source.toFile(), destinationFile.toFile());
         return destinationFile;
     }
 

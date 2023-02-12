@@ -37,6 +37,9 @@ public class Server {
     private List<String> toolDependencies;
     @Parameter(defaultValue = "true", property = "failOnMissingDependencies")
     private boolean failOnMissingDependencies = true;
+    @Parameter(defaultValue = "true", property = "excludeAgent")
+    private boolean excludeAgent = true;
+
 
     public void setDefaultValues(String spec, MavenProject project, File projectBuildOutputDirectory) {
         if (Objects.isNull(this.spec))

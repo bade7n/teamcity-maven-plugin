@@ -26,6 +26,7 @@ import org.apache.velocity.VelocityContext;
 import org.apache.velocity.app.VelocityEngine;
 import org.apache.velocity.runtime.RuntimeConstants;
 import org.apache.velocity.runtime.resource.loader.ClasspathResourceLoader;
+import org.codehaus.plexus.util.xml.Xpp3Dom;
 import org.jetbrains.teamcity.ArtifactBuilder;
 import org.jetbrains.teamcity.MultipleDependencyNodeVisitor;
 import org.jetbrains.teamcity.SkipFilteringDependencyNodeVisitor;
@@ -398,4 +399,14 @@ public class WorkflowUtil {
     public AssemblyContext createAssemblyContext(String prefix, Path root) {
         return createAssemblyContext(prefix, null, root);
     }
-}
+
+    public List<String> lookupFor(Xpp3Dom configuration, String... paths) {
+        if (configuration == null)
+            return Collections.emptyList();
+        Stream<Xpp3Dom> tmpStream = Stream.of(configuration);
+        for (String path: paths) {
+            tmpStream = tmpStream.flatMap(it -> Arrays.stream(it.getChildren(path)));
+        }
+        List<String> results = tmpStream.map(Xpp3Dom::getValue).collect(Collectors.toList());
+        return results;
+    }}

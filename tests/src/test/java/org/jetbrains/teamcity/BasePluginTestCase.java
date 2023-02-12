@@ -158,7 +158,7 @@ public abstract class BasePluginTestCase {
 
     protected void filesAreEqual(Path path, String expected) throws IOException {
         String actual = Files.readString(path);
-        Assert.assertEquals(actual, expected);
+        Assert.assertEquals(expected, actual);
     }
 
 

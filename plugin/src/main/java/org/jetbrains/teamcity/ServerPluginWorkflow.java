@@ -3,11 +3,13 @@ package org.jetbrains.teamcity;
 import lombok.Data;
 import org.apache.maven.artifact.Artifact;
 import org.apache.maven.model.Dependency;
+import org.apache.maven.model.Plugin;
 import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugin.MojoFailureException;
 import org.apache.maven.project.MavenProject;
 import org.apache.maven.shared.dependency.graph.DependencyNode;
 import org.codehaus.plexus.archiver.util.DefaultFileSet;
+import org.codehaus.plexus.util.xml.Xpp3Dom;
 import org.jetbrains.teamcity.agent.*;
 
 import java.io.File;
@@ -46,21 +48,32 @@ public class ServerPluginWorkflow implements ArtifactListProvider {
 
     private final List<Path> ideaArtifactList = new ArrayList<>();
 
+    private List<String> webappPaths = new ArrayList<>();
+
+    private String agentSpec;
+
     public void execute() throws MojoExecutionException, IOException, MojoFailureException {
         if (parameters.isNeedToBuild()) {
+            {
+                Optional<Plugin> plugin = getProject().getBuildPlugins().stream().filter(it -> it.getArtifactId().equalsIgnoreCase("maven-war-plugin")).findFirst();
+                if (plugin.isPresent()) {
+                    Plugin actualPlugin = plugin.get();
+                    webappPaths = util.lookupFor((Xpp3Dom) actualPlugin.getConfiguration(), "webResources", "resource", "directory");
+                }
+            }
+
             Path serverPluginRoot = util.createDir(util.getWorkDirectory().resolve("plugin").resolve(parameters.getPluginName()));
             Path agentPluginRoot = util.createDir(serverPluginRoot.resolve("agent"));
             AssemblyContext assemblyContext = buildServerPlugin(serverPluginRoot, rootNode);
 
             for (ResultArtifact ra : agentAttachedRuntimeArtifacts) {
-                assemblyContext.getPaths().add(new PathSet(agentPluginRoot).with(new ArtifactPathEntry(ra.getFile().toFile().getName(), ra.getArtifactContext().getName())));
+                assemblyContext.getPaths().add(new PathSet(agentPluginRoot).with(new ArtifactPathEntry(null, ra.getArtifactContext().getName())));
                 Files.copy(ra.getFile(), agentPluginRoot.resolve(ra.getFile().getFileName()), REPLACE_EXISTING);
             }
             assemblyContexts.add(assemblyContext.cloneWithRoot());
             AssemblyContext ideaAssemblyContext = util.createAssemblyContext("SERVER", "4IDEA", serverPluginRoot.getParent());
             ideaAssemblyContext.getPaths().add(new PathSet(serverPluginRoot).with(new ArtifactPathEntry(null, assemblyContext.getName())));
             assemblyContexts.add(ideaAssemblyContext.cloneWithRoot());
-
 
 
             String zipName = parameters.getPluginName() + ".zip";
@@ -82,11 +95,14 @@ public class ServerPluginWorkflow implements ArtifactListProvider {
         prepareDescriptor(assemblyContext, serverPluginRoot);
 
         Path serverPath = util.createDir(serverPluginRoot.resolve("server"));
-        List<Artifact> nodes = util.getDependencyNodeList(rootNode, parameters.getSpec(), parameters.getExclusions());
+        List<String> exclusions = new ArrayList<>(parameters.getExclusions());
+        if (agentSpec != null && parameters.isExcludeAgent())
+            exclusions.add(agentSpec);
+        List<Artifact> nodes = util.getDependencyNodeList(rootNode, parameters.getSpec(), exclusions);
         Map<Boolean, List<Artifact>> dependencies = nodes.stream().collect(Collectors.partitioningBy(it -> "teamcity-agent-plugin".equalsIgnoreCase(it.getClassifier())));
         assemblyContext.getPaths().add(new PathSet(serverPath));
         util.copyTransitiveDependenciesInto(parameters.isFailOnMissingDependencies(), parameters.getIgnoreExtraFilesIn(), assemblyContext, dependencies.get(Boolean.FALSE), serverPath);
-        if (!parameters.getBuildServerResources().isEmpty()) {
+        if (!getBuildServerResources().isEmpty()) {
             String classifier = "teamcity-plugin-resources";
             Path resourcesJar = util.getJarFile(serverPath, util.getProject().getArtifactId(), classifier);
             assemblyContext.getPaths().add(new PathSet(resourcesJar.getParent()));
@@ -95,7 +111,7 @@ public class ServerPluginWorkflow implements ArtifactListProvider {
 
             File resourcesFile = resourcesJar.toFile();
             List<org.codehaus.plexus.archiver.FileSet> fileSets = new ArrayList<>();
-            for (String buildServerResource : parameters.getBuildServerResources()) {
+            for (String buildServerResource : getBuildServerResources()) {
                 Path path = Path.of(buildServerResource);
                 if (!path.isAbsolute())
                     path = project.getBasedir().toPath().resolve(path);
@@ -120,6 +136,17 @@ public class ServerPluginWorkflow implements ArtifactListProvider {
             util.copyTransitiveDependenciesInto(parameters.isFailOnMissingDependencies(), parameters.getIgnoreExtraFilesIn(), assemblyContext, commonNodes, commonPath);
         }
         return assemblyContext;
+    }
+
+    private List<String> getBuildServerResources() {
+        if (!parameters.getBuildServerResources().isEmpty())
+            return parameters.getBuildServerResources();
+        else {
+            if (!webappPaths.isEmpty()) {
+                return webappPaths.stream().map(it -> Path.of(it, "plugins", parameters.getPluginName()).toString()).collect(Collectors.toList());
+            }
+        }
+        return Collections.emptyList();
     }
 
     private void prepareDescriptor(AssemblyContext assemblyContext, Path serverPluginRoot) throws MojoExecutionException {

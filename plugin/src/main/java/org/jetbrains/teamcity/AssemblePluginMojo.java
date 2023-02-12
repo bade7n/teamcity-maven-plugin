@@ -6,27 +6,16 @@ import org.apache.maven.archiver.MavenArchiveConfiguration;
 import org.apache.maven.archiver.MavenArchiver;
 import org.apache.maven.artifact.Artifact;
 import org.apache.maven.artifact.repository.ArtifactRepository;
-import org.apache.maven.artifact.resolver.filter.ArtifactFilter;
-import org.apache.maven.execution.MavenSession;
 import org.apache.maven.lifecycle.LifeCyclePluginAnalyzer;
 import org.apache.maven.lifecycle.LifecycleExecutor;
-import org.apache.maven.model.Dependency;
 import org.apache.maven.model.Plugin;
 import org.apache.maven.model.PluginExecution;
 import org.apache.maven.plugin.*;
 import org.apache.maven.plugin.descriptor.PluginDescriptor;
 import org.apache.maven.plugins.annotations.*;
 import org.apache.maven.plugins.annotations.Mojo;
-import org.apache.maven.project.DefaultProjectBuildingRequest;
 import org.apache.maven.project.MavenProjectHelper;
-import org.apache.maven.project.ProjectBuildingRequest;
-import org.apache.maven.shared.artifact.filter.*;
 import org.apache.maven.shared.dependency.graph.*;
-import org.apache.maven.shared.dependency.graph.filter.AncestorOrSelfDependencyNodeFilter;
-import org.apache.maven.shared.dependency.graph.filter.AndDependencyNodeFilter;
-import org.apache.maven.shared.dependency.graph.filter.ArtifactDependencyNodeFilter;
-import org.apache.maven.shared.dependency.graph.filter.DependencyNodeFilter;
-import org.apache.maven.shared.dependency.graph.traversal.*;
 import org.codehaus.plexus.util.xml.Xpp3Dom;
 import org.codehaus.plexus.archiver.Archiver;
 import org.codehaus.plexus.archiver.FileSet;
@@ -35,12 +24,10 @@ import org.codehaus.plexus.archiver.manager.ArchiverManager;
 import org.eclipse.aether.repository.RemoteRepository;
 import org.jetbrains.teamcity.agent.*;
 
-import javax.xml.parsers.ParserConfigurationException;
 import java.io.*;
-import java.nio.file.*;
 import java.util.*;
-
-import static org.apache.maven.artifact.Artifact.SCOPE_RUNTIME;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 @Mojo(name = "build", defaultPhase = LifecyclePhase.PACKAGE, aggregator = true, requiresProject = true, requiresDependencyResolution = ResolutionScope.TEST, requiresDependencyCollection = ResolutionScope.TEST)
 public class AssemblePluginMojo extends BaseTeamCityMojo {
@@ -127,6 +114,7 @@ public class AssemblePluginMojo extends BaseTeamCityMojo {
 
             serverPluginWorkflow = new ServerPluginWorkflow(rootNode, server, util, getProject(), getWorkDirectory().toPath());
             serverPluginWorkflow.getAgentAttachedRuntimeArtifacts().addAll(agentPluginWorkflow.getAttachedArtifacts());
+            serverPluginWorkflow.setAgentSpec(agent.getSpec());
             findPluginConfiguration().ifPresent(plugin -> serverPluginWorkflow.getPluginDependencies().addAll(plugin.getDependencies()));
             serverPluginWorkflow.execute();
             createArchives(serverPluginWorkflow.getAttachedArchives());

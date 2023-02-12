@@ -94,9 +94,7 @@ public class AssemblePluginMojoTestCase extends BasePluginTestCase {
                 "kotlin-dsl/\n" +
                 "kotlin-dsl/test\n" +
                 "server/\n" +
-                "server/commons-beanutils-core-1.8.3.jar\n" +
                 "server/commons-codec-1.15.jar\n" +
-                "server/commons-logging-1.1.1.jar\n" +
                 "server/project-to-test-1.1-SNAPSHOT.jar\n" +
                 "teamcity-plugin.xml");
         // language=XML
@@ -182,17 +180,13 @@ public class AssemblePluginMojoTestCase extends BasePluginTestCase {
                                 <element id="archive" name="project-to-test-1.1-SNAPSHOT.jar">
                                     <element id="module-output" name="project-to-test"/>
                                 </element>
-                                <element id="library" level="project" name="Maven: commons-beanutils:commons-beanutils-core:1.8.3"/>
-                                <element id="library" level="project" name="Maven: commons-logging:commons-logging:1.1.1"/>
                                 <element id="library" level="project" name="Maven: commons-codec:commons-codec:1.15"/>
                             </element>
                             <element id="directory" name="kotlin-dsl">
                                 <element id="dir-copy" path="$PROJECT_DIR$/target/classes/kotlin-dsl"/>
                             </element>
                             <element id="directory" name="agent">
-                                <element id="archive" name="project-to-test.zip">
-                                    <element artifact-name="TC::AGENT::project-to-test" id="artifact"/>
-                                </element>
+                                <element artifact-name="TC::AGENT::project-to-test" id="artifact"/>
                             </element>
                         </root>
                     </artifact>
@@ -328,9 +322,7 @@ public class AssemblePluginMojoTestCase extends BasePluginTestCase {
                                 </element>
                             </element>
                             <element id="directory" name="agent">
-                                <element id="archive" name="multi-module-to-test.zip">
-                                    <element artifact-name="TC::AGENT::multi-module-to-test" id="artifact"/>
-                                </element>
+                                <element artifact-name="TC::AGENT::multi-module-to-test" id="artifact"/>
                             </element>
                         </root>
                     </artifact>
