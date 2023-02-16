@@ -1,12 +1,14 @@
 package org.jetbrains.teamcity.agent;
 
 import lombok.Data;
+import org.apache.commons.lang3.tuple.Pair;
 import org.apache.maven.artifact.Artifact;
 import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugin.MojoFailureException;
 import org.apache.maven.shared.dependency.graph.DependencyNode;
 import org.jetbrains.teamcity.Agent;
 import org.jetbrains.teamcity.ArtifactBuilder;
+import org.jetbrains.teamcity.data.ResolvedArtifact;
 
 import java.io.File;
 import java.io.IOException;
@@ -64,10 +66,13 @@ public class AgentPluginWorkflow implements ArtifactListProvider {
          * |-server
          * |-teamcity-plugin.xml
          */
-        Path agentLibPath = agentPath.resolve("lib");
+        Path agentLibPath = util.createDir(agentPath.resolve("lib"));
         assemblyContext.getPaths().add(new PathSet(agentLibPath));
-        List<Artifact> nodesCopied = util.copyTransitiveDependenciesInto(parameters.isFailOnMissingDependencies(), parameters.getIgnoreExtraFilesIn(), assemblyContext, rootNode, parameters.getSpec(), util.createDir(agentLibPath), parameters.getExclusions());
-        if (!nodesCopied.isEmpty()) {
+        List<Artifact> nodes = util.getDependencyNodeList(rootNode, parameters.getSpec(), parameters.getExclusions());
+        Pair<List<ResolvedArtifact>, List<Path>> artifacts = util.copyTransitiveDependenciesInto(parameters.isFailOnMissingDependencies(), assemblyContext, nodes, agentLibPath);
+        List<Path> destinations = new ArrayList<>(artifacts.getRight());
+
+        if (!nodes.isEmpty()) {
 
             File targetDescriptorPath = parameters.getDescriptor().getPath();
             if (!targetDescriptorPath.exists() && !parameters.getDescriptor().isDoNotGenerate()) {
@@ -83,6 +88,7 @@ public class AgentPluginWorkflow implements ArtifactListProvider {
             if (targetDescriptorPath.exists()) {
                 try {
                     pluginDescriptorPath = agentPath.resolve(TEAMCITY_PLUGIN_XML);
+                    destinations.add(pluginDescriptorPath);
                     Files.copy(targetDescriptorPath.toPath(), pluginDescriptorPath, REPLACE_EXISTING);
                 } catch (IOException e) {
                     throw new MojoExecutionException(String.format("Can't copy %s.", targetDescriptorPath), e);
@@ -105,6 +111,7 @@ public class AgentPluginWorkflow implements ArtifactListProvider {
                 util.getLog().warn("Error while packing agent part to: " + agentPluginPath, e);
             }
         }
+        util.removeOtherFiles(parameters.getIgnoreExtraFilesIn(), agentPath, destinations);
         return assemblyContext.cloneWithRoot();
     }
 }

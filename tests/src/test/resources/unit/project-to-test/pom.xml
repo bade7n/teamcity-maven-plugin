@@ -46,8 +46,8 @@
                         </descriptor>
                     </agent>
                     <server>
+                        <ignoreExtraFilesIn>lib</ignoreExtraFilesIn>
                     </server>
-                    <ignoreExtraFilesIn>lib</ignoreExtraFilesIn>
                 </configuration>
             </plugin>
         </plugins>

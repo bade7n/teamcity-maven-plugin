@@ -7,6 +7,8 @@ import org.junit.Test;
 
 import java.util.*;
 
+import static org.assertj.core.api.Assertions.assertThat;
+
 public class AssemblePluginMojoTestCase extends BasePluginTestCase {
 
     @Test
@@ -79,9 +81,10 @@ public class AssemblePluginMojoTestCase extends BasePluginTestCase {
         MojoExecution execution = rule.newMojoExecution("build");
         AssemblePluginMojo mojo = (AssemblePluginMojo) rule.lookupConfiguredMojo(session, execution);
         mojo.setFailOnMissingDependencies(false);
+        mojo.getServer().getIgnoreExtraFilesIn();
         mojo.execute();
         String sb = getTestResult(mojo);
-        sa.assertThat(sb).asString().isEqualToIgnoringNewLines("AGENT:\n" +
+        assertThat(sb).asString().isEqualToIgnoringNewLines("AGENT:\n" +
                 "lib\n" +
                 "lib/commons-beanutils-core-1.8.3.jar\n" +
                 "lib/commons-logging-1.1.1.jar\n" +

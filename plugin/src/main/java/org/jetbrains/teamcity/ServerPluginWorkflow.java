@@ -1,6 +1,7 @@
 package org.jetbrains.teamcity;
 
 import lombok.Data;
+import org.apache.commons.lang3.tuple.Pair;
 import org.apache.maven.artifact.Artifact;
 import org.apache.maven.model.Dependency;
 import org.apache.maven.model.Plugin;
@@ -11,6 +12,7 @@ import org.apache.maven.shared.dependency.graph.DependencyNode;
 import org.codehaus.plexus.archiver.util.DefaultFileSet;
 import org.codehaus.plexus.util.xml.Xpp3Dom;
 import org.jetbrains.teamcity.agent.*;
+import org.jetbrains.teamcity.data.ResolvedArtifact;
 
 import java.io.File;
 import java.io.IOException;
@@ -101,7 +103,8 @@ public class ServerPluginWorkflow implements ArtifactListProvider {
         List<Artifact> nodes = util.getDependencyNodeList(rootNode, parameters.getSpec(), exclusions);
         Map<Boolean, List<Artifact>> dependencies = nodes.stream().collect(Collectors.partitioningBy(it -> "teamcity-agent-plugin".equalsIgnoreCase(it.getClassifier())));
         assemblyContext.getPaths().add(new PathSet(serverPath));
-        util.copyTransitiveDependenciesInto(parameters.isFailOnMissingDependencies(), parameters.getIgnoreExtraFilesIn(), assemblyContext, dependencies.get(Boolean.FALSE), serverPath);
+        Pair<List<ResolvedArtifact>, List<Path>> copyResults = util.copyTransitiveDependenciesInto(parameters.isFailOnMissingDependencies(), assemblyContext, dependencies.get(Boolean.FALSE), serverPath);
+        List<Path> createdDestinations = new ArrayList<>(copyResults.getRight());
         if (!getBuildServerResources().isEmpty()) {
             String classifier = "teamcity-plugin-resources";
             Path resourcesJar = util.getJarFile(serverPath, util.getProject().getArtifactId(), classifier);
@@ -125,16 +128,19 @@ public class ServerPluginWorkflow implements ArtifactListProvider {
         }
 
         List<Artifact> agentPluginDependencies = dependencies.get(Boolean.TRUE);
-        assembleExplicitAgentDependencies(serverPluginRoot, assemblyContext, agentPluginDependencies);
-
-        assembleKotlinDsl(assemblyContext, serverPluginRoot);
+        List<Path> explicitAgentDestinations = assembleExplicitAgentDependencies(serverPluginRoot, assemblyContext, agentPluginDependencies);
+        createdDestinations.addAll(explicitAgentDestinations);
+        List<Path> kotlinDestinations = assembleKotlinDsl(assemblyContext, serverPluginRoot);
 
         if (parameters.isNeedToBuildCommon()) {
             assemblyContext.getPaths().add(new PathSet(serverPluginRoot.resolve("common")));
             Path commonPath = util.createDir(serverPluginRoot.resolve("common"));
             List<Artifact> commonNodes = util.getDependencyNodeList(rootNode, parameters.getCommonSpec(), parameters.getCommonExclusions());
-            util.copyTransitiveDependenciesInto(parameters.isFailOnMissingDependencies(), parameters.getIgnoreExtraFilesIn(), assemblyContext, commonNodes, commonPath);
+            Pair<List<ResolvedArtifact>, List<Path>> copyResults1 = util.copyTransitiveDependenciesInto(parameters.isFailOnMissingDependencies(), assemblyContext, commonNodes, commonPath);
+            createdDestinations.addAll(copyResults1.getRight());
         }
+
+        util.removeOtherFiles(parameters.getIgnoreExtraFilesIn(), serverPluginRoot, createdDestinations);
         return assemblyContext;
     }
 
@@ -143,7 +149,7 @@ public class ServerPluginWorkflow implements ArtifactListProvider {
             return parameters.getBuildServerResources();
         else {
             if (!webappPaths.isEmpty()) {
-                return webappPaths.stream().map(it -> Path.of(it, "plugins", parameters.getPluginName()).toString()).collect(Collectors.toList());
+                return webappPaths.stream().map(it -> Path.of(it, "plugins", parameters.getPluginName())).filter(it->it.toFile().exists()).map(it -> it.toString()).collect(Collectors.toList());
             }
         }
         return Collections.emptyList();
@@ -175,28 +181,36 @@ public class ServerPluginWorkflow implements ArtifactListProvider {
     }
 
 
-    private void assembleExplicitAgentDependencies(Path serverPluginRoot, AssemblyContext assemblyContext, List<Artifact> agentPluginDependencies) throws MojoExecutionException {
+    private List<Path> assembleExplicitAgentDependencies(Path serverPluginRoot, AssemblyContext assemblyContext, List<Artifact> agentPluginDependencies) throws MojoExecutionException {
+        List<Path> explicitDestinations = new ArrayList<>();
         if (agentPluginDependencies != null && !agentPluginDependencies.isEmpty()) {
             Path agentPath = util.createDir(serverPluginRoot.resolve(AGENT_SUBDIR));
-            util.copyTransitiveDependenciesInto(parameters.isFailOnMissingDependencies(), parameters.getIgnoreExtraFilesIn(), assemblyContext, agentPluginDependencies, agentPath);
+            Pair<List<ResolvedArtifact>, List<Path>> copyResults = util.copyTransitiveDependenciesInto(parameters.isFailOnMissingDependencies(), assemblyContext, agentPluginDependencies, agentPath);
+            explicitDestinations.addAll(copyResults.getRight());
         }
 
         List<Dependency> agentDependencies = pluginDependencies.stream().filter(it -> TEAMCITY_AGENT_PLUGIN_CLASSIFIER.equalsIgnoreCase(it.getClassifier())).collect(Collectors.toList());
         if (!agentDependencies.isEmpty()) {
             Path agentPath = util.createDir(serverPluginRoot.resolve(AGENT_SUBDIR));
-            util.copyDependenciesInto(assemblyContext, parameters.isFailOnMissingDependencies(), agentDependencies, agentPath);
+            Pair<List<ResolvedArtifact>, List<Path>> copyResults = util.copyDependenciesInto(assemblyContext, parameters.isFailOnMissingDependencies(), agentDependencies, agentPath);
+            explicitDestinations.addAll(copyResults.getRight());
         }
+        return explicitDestinations;
     }
 
-    private void assembleKotlinDsl(AssemblyContext assemblyContext, Path serverPluginRoot) {
+    private List<Path> assembleKotlinDsl(AssemblyContext assemblyContext, Path serverPluginRoot) {
+        List<Path> destinations = new ArrayList<>();
         if (parameters.getKotlinDslDescriptorsPath().exists()) {
             Path kotlinDslPath = util.createDir(serverPluginRoot.resolve("kotlin-dsl"));
             assemblyContext.getPaths().add(new PathSet(kotlinDslPath).with(new DirCopyPathEntry(parameters.getKotlinDslDescriptorsPath().toPath())));
             try {
                 Files.walk(parameters.getKotlinDslDescriptorsPath().toPath()).forEach(it -> {
                     try {
-                        if (it.toFile().isFile())
-                            Files.copy(it, kotlinDslPath.resolve(it.getFileName()), REPLACE_EXISTING);
+                        if (it.toFile().isFile()) {
+                            Path target = kotlinDslPath.resolve(it.getFileName());
+                            destinations.add(target);
+                            Files.copy(it, target, REPLACE_EXISTING);
+                        }
                     } catch (IOException e) {
                         util.getLog().warn("Can't copy " + it + " to " + kotlinDslPath, e);
                     }
@@ -205,5 +219,6 @@ public class ServerPluginWorkflow implements ArtifactListProvider {
                 util.getLog().warn("Can't copy " + parameters.getKotlinDslDescriptorsPath() + " to " + kotlinDslPath);
             }
         }
+        return destinations;
     }
 }

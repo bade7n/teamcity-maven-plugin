@@ -1,6 +1,7 @@
 package org.jetbrains.teamcity.agent;
 
 import lombok.Data;
+import org.apache.commons.lang3.tuple.Pair;
 import org.apache.maven.artifact.Artifact;
 import org.apache.maven.artifact.ArtifactUtils;
 import org.apache.maven.artifact.factory.ArtifactFactory;
@@ -90,13 +91,7 @@ public class WorkflowUtil {
         }
     }
 
-    protected List<Artifact> copyTransitiveDependenciesInto(boolean failOnMissingDependencies, String ignoreExtraFilesIn, AssemblyContext assemblyContext, DependencyNode rootNode, String spec, Path toPath, List<String> excludes) throws MojoExecutionException {
-        List<Artifact> nodes = getDependencyNodeList(rootNode, spec, excludes);
-        List<ResolvedArtifact> artifacts = copyTransitiveDependenciesInto(failOnMissingDependencies, ignoreExtraFilesIn, assemblyContext, nodes, toPath);
-        return nodes;
-    }
-
-    public List<ResolvedArtifact> copyTransitiveDependenciesInto(boolean failOnMissingDependencies, String ignoreExtraFilesIn, AssemblyContext assemblyContext, List<Artifact> nodes, Path toPath) throws MojoExecutionException {
+    public Pair<List<ResolvedArtifact>,List<Path>>  copyTransitiveDependenciesInto(boolean failOnMissingDependencies, AssemblyContext assemblyContext, List<Artifact> nodes, Path toPath) throws MojoExecutionException {
         List<Path> destinations = new ArrayList<>();
         List<ResolvedArtifact> result = new ArrayList<>();
         for (Artifact node : nodes) {
@@ -116,11 +111,10 @@ public class WorkflowUtil {
                 getLog().warn("Error while copying " + source + " to " + destination, e);
             }
         }
-        removeOtherFiles(ignoreExtraFilesIn, toPath, destinations);
-        return result;
+        return Pair.of(result, destinations);
     }
 
-    private void removeOtherFiles(String ignoreExtraFilesIn, Path toPath, List<Path> destinations) {
+    public void removeOtherFiles(String ignoreExtraFilesIn, Path toPath, List<Path> destinations) {
         try {
             List<Path> existingFiles = Files.walk(toPath)
                     .filter(it -> !it.equals(toPath))
@@ -139,7 +133,7 @@ public class WorkflowUtil {
     private boolean shouldRemove(String ignoreExtraFilesIn, Path toPath, Path it) {
         if (ignoreExtraFilesIn != null) {
             String[] extraPaths = ignoreExtraFilesIn.split(",");
-            Path relativePath = toPath.relativize(it);
+            Path relativePath = toPath.getParent().relativize(it);
             for (String extra : extraPaths) {
                 Path p = Paths.get(extra);
                 if ((p.isAbsolute() && it.equals(p)) || (!p.isAbsolute() && isSubpathOf(relativePath, p))) {
@@ -147,6 +141,8 @@ public class WorkflowUtil {
                 }
             }
         }
+        if (it.toFile().isDirectory() || (it.toFile().isFile() && "teamcity-plugin.xml".equalsIgnoreCase(it.toFile().getName())))
+            return false;
         return true;
     }
 
@@ -360,7 +356,7 @@ public class WorkflowUtil {
         }
     }
 
-    public List<ResolvedArtifact> copyDependenciesInto(AssemblyContext assemblyContext, boolean failOnMissingDependencies, List<Dependency> nodes, Path toPath) throws MojoExecutionException {
+    public Pair<List<ResolvedArtifact>,List<Path>> copyDependenciesInto(AssemblyContext assemblyContext, boolean failOnMissingDependencies, List<Dependency> nodes, Path toPath) throws MojoExecutionException {
         assemblyContext.getPaths().add(new PathSet(toPath));
         List<Path> destinations = new ArrayList<>();
         List<ResolvedArtifact> result = new ArrayList<>();
@@ -378,7 +374,7 @@ public class WorkflowUtil {
                 getLog().warn("Error while copying " + source + " to " + destination, e);
             }
         }
-        return result;
+        return Pair.of(result, destinations);
     }
 
     public AssemblyContext createAssemblyContext(String prefix, String suffix, Path root) {
