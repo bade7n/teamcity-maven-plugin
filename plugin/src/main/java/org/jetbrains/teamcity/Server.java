@@ -32,7 +32,7 @@ public class Server {
     @Parameter(defaultValue = "${project.build.outputDirectory}/kotlin-dsl")
     private File kotlinDslDescriptorsPath;
     @Parameter
-    private String ignoreExtraFilesIn;
+    private List<String> ignoreExtraFilesIn;
     @Parameter
     private List<String> toolDependencies;
     @Parameter(defaultValue = "true", property = "failOnMissingDependencies")

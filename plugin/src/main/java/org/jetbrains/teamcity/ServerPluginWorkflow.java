@@ -65,13 +65,8 @@ public class ServerPluginWorkflow implements ArtifactListProvider {
             }
 
             Path serverPluginRoot = util.createDir(util.getWorkDirectory().resolve("plugin").resolve(parameters.getPluginName()));
-            Path agentPluginRoot = util.createDir(serverPluginRoot.resolve("agent"));
             AssemblyContext assemblyContext = buildServerPlugin(serverPluginRoot, rootNode);
 
-            for (ResultArtifact ra : agentAttachedRuntimeArtifacts) {
-                assemblyContext.getPaths().add(new PathSet(agentPluginRoot).with(new ArtifactPathEntry(null, ra.getArtifactContext().getName())));
-                Files.copy(ra.getFile(), agentPluginRoot.resolve(ra.getFile().getFileName()), REPLACE_EXISTING);
-            }
             assemblyContexts.add(assemblyContext.cloneWithRoot());
             AssemblyContext ideaAssemblyContext = util.createAssemblyContext("SERVER", "4IDEA", serverPluginRoot.getParent());
             ideaAssemblyContext.getPaths().add(new PathSet(serverPluginRoot).with(new ArtifactPathEntry(null, assemblyContext.getName())));
@@ -92,7 +87,7 @@ public class ServerPluginWorkflow implements ArtifactListProvider {
         ideaArtifactList.addAll(new ArtifactBuilder(util.getLog(), util).build(getAssemblyContexts()));
     }
 
-    private AssemblyContext buildServerPlugin(Path serverPluginRoot, DependencyNode rootNode) throws MojoExecutionException {
+    private AssemblyContext buildServerPlugin(Path serverPluginRoot, DependencyNode rootNode) throws MojoExecutionException, IOException {
         AssemblyContext assemblyContext = util.createAssemblyContext("SERVER", "EXPLODED", serverPluginRoot);
         prepareDescriptor(assemblyContext, serverPluginRoot);
 
@@ -131,6 +126,7 @@ public class ServerPluginWorkflow implements ArtifactListProvider {
         List<Path> explicitAgentDestinations = assembleExplicitAgentDependencies(serverPluginRoot, assemblyContext, agentPluginDependencies);
         createdDestinations.addAll(explicitAgentDestinations);
         List<Path> kotlinDestinations = assembleKotlinDsl(assemblyContext, serverPluginRoot);
+        createdDestinations.addAll(kotlinDestinations);
 
         if (parameters.isNeedToBuildCommon()) {
             assemblyContext.getPaths().add(new PathSet(serverPluginRoot.resolve("common")));
@@ -138,6 +134,14 @@ public class ServerPluginWorkflow implements ArtifactListProvider {
             List<Artifact> commonNodes = util.getDependencyNodeList(rootNode, parameters.getCommonSpec(), parameters.getCommonExclusions());
             Pair<List<ResolvedArtifact>, List<Path>> copyResults1 = util.copyTransitiveDependenciesInto(parameters.isFailOnMissingDependencies(), assemblyContext, commonNodes, commonPath);
             createdDestinations.addAll(copyResults1.getRight());
+        }
+
+        Path agentPluginRoot = util.createDir(serverPluginRoot.resolve(AGENT_SUBDIR));
+        for (ResultArtifact ra : agentAttachedRuntimeArtifacts) {
+            assemblyContext.getPaths().add(new PathSet(agentPluginRoot).with(new ArtifactPathEntry(null, ra.getArtifactContext().getName())));
+            Path destination = agentPluginRoot.resolve(ra.getFile().getFileName());
+            Files.copy(ra.getFile(), destination, REPLACE_EXISTING);
+            createdDestinations.add(destination);
         }
 
         util.removeOtherFiles(parameters.getIgnoreExtraFilesIn(), serverPluginRoot, createdDestinations);

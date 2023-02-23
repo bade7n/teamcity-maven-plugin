@@ -23,7 +23,7 @@ public class Agent {
     @Parameter(defaultValue = "true")
     private boolean failOnMissingDependencies = true;
     @Parameter
-    private String ignoreExtraFilesIn;
+    private List<String> ignoreExtraFilesIn;
 
     private Descriptor descriptor = new Descriptor();
 

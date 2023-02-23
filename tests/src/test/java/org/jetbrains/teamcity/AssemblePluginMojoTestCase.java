@@ -81,7 +81,7 @@ public class AssemblePluginMojoTestCase extends BasePluginTestCase {
         MojoExecution execution = rule.newMojoExecution("build");
         AssemblePluginMojo mojo = (AssemblePluginMojo) rule.lookupConfiguredMojo(session, execution);
         mojo.setFailOnMissingDependencies(false);
-        mojo.getServer().getIgnoreExtraFilesIn();
+        mojo.getServer().setIgnoreExtraFilesIn(List.of("bundles"));
         mojo.execute();
         String sb = getTestResult(mojo);
         assertThat(sb).asString().isEqualToIgnoringNewLines("AGENT:\n" +

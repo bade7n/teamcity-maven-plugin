@@ -114,7 +114,7 @@ public class WorkflowUtil {
         return Pair.of(result, destinations);
     }
 
-    public void removeOtherFiles(String ignoreExtraFilesIn, Path toPath, List<Path> destinations) {
+    public void removeOtherFiles(List<String> ignoreExtraFilesIn, Path toPath, List<Path> destinations) {
         try {
             List<Path> existingFiles = Files.walk(toPath)
                     .filter(it -> !it.equals(toPath))
@@ -130,10 +130,9 @@ public class WorkflowUtil {
         }
     }
 
-    private boolean shouldRemove(String ignoreExtraFilesIn, Path toPath, Path it) {
-        if (ignoreExtraFilesIn != null) {
-            String[] extraPaths = ignoreExtraFilesIn.split(",");
-            Path relativePath = toPath.getParent().relativize(it);
+    private boolean shouldRemove(List<String> extraPaths, Path toPath, Path it) {
+        if (extraPaths != null) {
+            Path relativePath = toPath.relativize(it);
             for (String extra : extraPaths) {
                 Path p = Paths.get(extra);
                 if ((p.isAbsolute() && it.equals(p)) || (!p.isAbsolute() && isSubpathOf(relativePath, p))) {

@@ -37,7 +37,7 @@ public class AgentPluginMojo extends BaseTeamCityMojo {
     @Parameter(defaultValue = "true")
     private boolean failOnMissingDependencies = true;
     @Parameter
-    private String ignoreExtraFilesIn;
+    private List<String> ignoreExtraFilesIn;
 
     @Parameter(defaultValue = "${project.build.outputDirectory}/META-INF/teamcity-agent-plugin.xml")
     private File descriptorPath;
