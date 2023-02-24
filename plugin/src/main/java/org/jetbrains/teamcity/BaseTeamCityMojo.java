@@ -2,6 +2,7 @@ package org.jetbrains.teamcity;
 
 import lombok.Getter;
 import lombok.Setter;
+import org.apache.maven.archiver.MavenArchiveConfiguration;
 import org.apache.maven.artifact.factory.ArtifactFactory;
 import org.apache.maven.artifact.resolver.filter.ArtifactFilter;
 import org.apache.maven.execution.MavenSession;
@@ -19,6 +20,7 @@ import org.apache.maven.shared.dependency.graph.DependencyCollectorBuilderExcept
 import org.apache.maven.shared.dependency.graph.DependencyNode;
 import org.apache.maven.shared.dependency.graph.traversal.BuildingDependencyNodeVisitor;
 import org.apache.maven.shared.dependency.graph.traversal.DependencyNodeVisitor;
+import org.codehaus.plexus.archiver.manager.ArchiverManager;
 import org.eclipse.aether.RepositorySystem;
 import org.eclipse.aether.RepositorySystemSession;
 import org.eclipse.aether.repository.RemoteRepository;
@@ -70,10 +72,16 @@ public abstract class BaseTeamCityMojo extends AbstractMojo {
     @Parameter( defaultValue = "${project.build.outputTimestamp}" )
     private String outputTimestamp;
 
+    @Component
+    private ArchiverManager archiverManager;
+
+    @Parameter
+    private MavenArchiveConfiguration archive = new MavenArchiveConfiguration();
+
 
     public WorkflowUtil getWorkflowUtil() throws IOException {
         ResolveUtil resolve = new ResolveUtil(getLog(), repoSystem, repositories, repoSession);
-        return new WorkflowUtil(getLog(), reactorProjects, project, workDirectory.toPath(), resolve, tokens, artifactFactory);
+        return new WorkflowUtil(getLog(), reactorProjects, project, workDirectory.toPath(), resolve, tokens, artifactFactory, archiverManager, outputTimestamp, session);
     }
 
 

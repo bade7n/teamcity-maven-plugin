@@ -19,6 +19,8 @@ public class CompressedPathEntry implements PathEntry {
 
     @Override
     public PathEntry cloneWithRoot(Path base) {
-        return new CompressedPathEntry(name, prefixInArchive);
+        CompressedPathEntry compressedPathEntry = new CompressedPathEntry(name, prefixInArchive);
+        compressedPathEntry.getPathsIncluded().addAll(pathsIncluded);
+        return compressedPathEntry;
     }
 }

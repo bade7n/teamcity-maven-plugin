@@ -2,6 +2,7 @@ package org.jetbrains.teamcity;
 
 import lombok.Data;
 import org.apache.commons.lang3.tuple.Pair;
+import org.apache.maven.archiver.MavenArchiveConfiguration;
 import org.apache.maven.artifact.Artifact;
 import org.apache.maven.model.Dependency;
 import org.apache.maven.model.Plugin;
@@ -9,6 +10,7 @@ import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugin.MojoFailureException;
 import org.apache.maven.project.MavenProject;
 import org.apache.maven.shared.dependency.graph.DependencyNode;
+import org.codehaus.plexus.archiver.manager.NoSuchArchiverException;
 import org.codehaus.plexus.archiver.util.DefaultFileSet;
 import org.codehaus.plexus.util.xml.Xpp3Dom;
 import org.jetbrains.teamcity.agent.*;
@@ -60,7 +62,11 @@ public class ServerPluginWorkflow implements ArtifactListProvider {
                 Optional<Plugin> plugin = getProject().getBuildPlugins().stream().filter(it -> it.getArtifactId().equalsIgnoreCase("maven-war-plugin")).findFirst();
                 if (plugin.isPresent()) {
                     Plugin actualPlugin = plugin.get();
-                    webappPaths = util.lookupFor((Xpp3Dom) actualPlugin.getConfiguration(), "webResources", "resource", "directory");
+                    List<String> customWebappPaths = util.lookupFor((Xpp3Dom) actualPlugin.getConfiguration(), "webResources", "resource", "directory");
+                    if (customWebappPaths.isEmpty())
+                        webappPaths = List.of(project.getBasedir() + "/src/main/webapp");
+                    else
+                        webappPaths = customWebappPaths;
                 }
             }
 
@@ -120,6 +126,7 @@ public class ServerPluginWorkflow implements ArtifactListProvider {
 
             attachedArchives.add(new ResultArchive("jar", fileSets, resourcesFile));
             attachedArtifacts.add(new ResultArtifact("jar", classifier, resourcesJar, null));
+            createdDestinations.add(resourcesJar);
         }
 
         List<Artifact> agentPluginDependencies = dependencies.get(Boolean.TRUE);
@@ -142,6 +149,12 @@ public class ServerPluginWorkflow implements ArtifactListProvider {
             Path destination = agentPluginRoot.resolve(ra.getFile().getFileName());
             Files.copy(ra.getFile(), destination, REPLACE_EXISTING);
             createdDestinations.add(destination);
+        }
+
+        try {
+            util.createArchives(getAttachedArchives(), new MavenArchiveConfiguration());
+        } catch (NoSuchArchiverException e) {
+            util.getLog().warn("Archiver not found", e);
         }
 
         util.removeOtherFiles(parameters.getIgnoreExtraFilesIn(), serverPluginRoot, createdDestinations);

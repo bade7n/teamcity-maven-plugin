@@ -2,10 +2,13 @@ package org.jetbrains.teamcity.agent;
 
 import lombok.Data;
 import org.apache.commons.lang3.tuple.Pair;
+import org.apache.maven.archiver.MavenArchiveConfiguration;
+import org.apache.maven.archiver.MavenArchiver;
 import org.apache.maven.artifact.Artifact;
 import org.apache.maven.artifact.ArtifactUtils;
 import org.apache.maven.artifact.factory.ArtifactFactory;
 import org.apache.maven.artifact.resolver.filter.ArtifactFilter;
+import org.apache.maven.execution.MavenSession;
 import org.apache.maven.model.Dependency;
 import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugin.MojoFailureException;
@@ -27,9 +30,13 @@ import org.apache.velocity.VelocityContext;
 import org.apache.velocity.app.VelocityEngine;
 import org.apache.velocity.runtime.RuntimeConstants;
 import org.apache.velocity.runtime.resource.loader.ClasspathResourceLoader;
+import org.codehaus.plexus.archiver.FileSet;
+import org.codehaus.plexus.archiver.jar.JarArchiver;
+import org.codehaus.plexus.archiver.manager.ArchiverManager;
+import org.codehaus.plexus.archiver.manager.NoSuchArchiverException;
 import org.codehaus.plexus.util.xml.Xpp3Dom;
-import org.jetbrains.teamcity.ArtifactBuilder;
 import org.jetbrains.teamcity.MultipleDependencyNodeVisitor;
+import org.jetbrains.teamcity.ResultArchive;
 import org.jetbrains.teamcity.SkipFilteringDependencyNodeVisitor;
 import org.jetbrains.teamcity.data.ResolvedArtifact;
 
@@ -60,7 +67,11 @@ public class WorkflowUtil {
     private final String tokens;
     private final ArtifactFactory artifactFactory;
 
-    public WorkflowUtil(Log log, List<MavenProject> reactorProjects, MavenProject project, Path workDirectory, ResolveUtil resolve, String tokens, ArtifactFactory artifactFactory) {
+    private final ArchiverManager archiverManager;
+    private String outputTimestamp;
+    private MavenSession session;
+
+    public WorkflowUtil(Log log, List<MavenProject> reactorProjects, MavenProject project, Path workDirectory, ResolveUtil resolve, String tokens, ArtifactFactory artifactFactory, ArchiverManager archiverManager, String outputTimestamp, MavenSession session) {
         this.log = log;
         this.reactorProjectList = reactorProjects.stream().flatMap(this::getArtifactList).collect(Collectors.toList());
         this.project = project;
@@ -68,6 +79,9 @@ public class WorkflowUtil {
         this.resolve = resolve;
         this.tokens = tokens;
         this.artifactFactory = artifactFactory;
+        this.archiverManager = archiverManager;
+        this.outputTimestamp = outputTimestamp;
+        this.session = session;
     }
 
     private Stream<Artifact> getArtifactList(MavenProject it) {
@@ -129,6 +143,29 @@ public class WorkflowUtil {
             throw new RuntimeException(e);
         }
     }
+
+    public void createArchives(List<ResultArchive> attachedArchives, MavenArchiveConfiguration archive) throws MojoExecutionException, NoSuchArchiverException {
+        for (ResultArchive a: attachedArchives) {
+            createArchive(a, archive);
+        }
+    }
+
+    private void createArchive(ResultArchive a, MavenArchiveConfiguration archive) throws MojoExecutionException, NoSuchArchiverException {
+        MavenArchiver archiver = new MavenArchiver();
+        archiver.setArchiver((JarArchiver) archiverManager.getArchiver(a.getType()));
+        archiver.setOutputFile(a.getFile());
+        archiver.configureReproducibleBuild(outputTimestamp);
+        try {
+            for (FileSet fs : a.getFileSets()) {
+                archiver.getArchiver().addFileSet(fs);
+            }
+            archiver.createArchive(getSession(), getProject(), archive);
+        } catch (Exception e) {
+            throw new MojoExecutionException("Error assembling JAR " + a.getFile(), e);
+        }
+
+    }
+
 
     private boolean shouldRemove(List<String> extraPaths, Path toPath, Path it) {
         if (extraPaths != null) {

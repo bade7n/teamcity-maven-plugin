@@ -25,7 +25,53 @@ public class ModuleWarTestCase extends BasePluginTestCase {
                 agent/
                 agent/module-agent.zip
                 server/
+                server/module-war-teamcity-plugin-resources.jar
                 teamcity-plugin.xml""").isEqualTo(sb.toString());
+        // language=XML
+        assertIdeaArtifacts(mojo.getServerPluginWorkflow(), """
+<component name="ArtifactManager">
+    <artifact name="TC::SERVER::module-war::EXPLODED">
+        <output-path>$PROJECT_DIR$/target/teamcity/plugin/module-war</output-path>
+        <root id="root">
+            <element id="file-copy" output-file-name="teamcity-plugin.xml" path="$PROJECT_DIR$/target/teamcity/teamcity-plugin-generated.xml"/>
+            <element id="directory" name="server">
+                <element id="archive" name="module-war-teamcity-plugin-resources.jar">
+                    <element id="directory" name="buildServerResources">
+                        <element id="dir-copy" path="$PROJECT_DIR$/src/main/webapp/plugins/module-war"/>
+                    </element>
+                </element>
+            </element>
+            <element id="directory" name="agent">
+                <element id="archive" name="module-agent.zip">
+                    <element artifact-name="TC::AGENT::module-agent::EXPLODED" id="artifact"/>
+                </element>
+            </element>
+        </root>
+    </artifact>
+</component>
+""", """
+<component name="ArtifactManager">
+    <artifact name="TC::SERVER::module-war::4IDEA">
+        <output-path>$PROJECT_DIR$/target/teamcity/plugin</output-path>
+        <root id="root">
+            <element id="directory" name="module-war">
+                <element artifact-name="TC::SERVER::module-war::EXPLODED" id="artifact"/>
+            </element>
+        </root>
+    </artifact>
+</component>
+""", """
+<component name="ArtifactManager">
+    <artifact name="TC::SERVER::module-war">
+        <output-path>$PROJECT_DIR$/target/teamcity/dist</output-path>
+        <root id="root">
+            <element id="archive" name="module-war.zip">
+                <element artifact-name="TC::SERVER::module-war::EXPLODED" id="artifact"/>
+            </element>
+        </root>
+    </artifact>
+</component>
+""");
 
     }
         @Test

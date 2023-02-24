@@ -19,6 +19,7 @@ import javax.xml.transform.TransformerException;
 import javax.xml.transform.TransformerFactory;
 import javax.xml.transform.dom.DOMSource;
 import javax.xml.transform.stream.StreamResult;
+import java.awt.*;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
@@ -72,6 +73,8 @@ public class ArtifactBuilder {
                     type = DIR_COPY;
                 else if (pe instanceof ArtifactPathEntry)
                     type = ARTIFACT;
+                else if (pe instanceof CompressedPathEntry)
+                    type = COMPRESSED_FILE;
                 location.getChilds().add(new ArtifactNode(pe.getName(), type, pe));
             }
         }
@@ -174,6 +177,25 @@ public class ArtifactBuilder {
                     element.setAttribute("output-file-name", fpe.getName());
 
             }
+        } else if (artifactNode.getType() == COMPRESSED_FILE) {
+            /**
+             *           <element id="archive" name="dotNet-generic-runner.jar">
+             *             <element id="directory" name="buildServerResources">
+             *               <element id="dir-copy" path="$PROJECT_DIR$/dotNet/generic-runner-server/resources" />
+             *             </element>
+             *           </element>
+             */
+            if (artifactNode.getInfo() instanceof CompressedPathEntry) {
+                CompressedPathEntry fpe = (CompressedPathEntry) artifactNode.getInfo();
+                setIdName(element, "archive", fpe.getName());
+                Element e = element;
+                if (!Strings.isNullOrEmpty(fpe.getPrefixInArchive()))
+                    e = newElement(element, "directory", fpe.getPrefixInArchive());
+                for(Path resolved: fpe.resolve()) {
+                    Element dirCopy = newElement(e, "dir-copy", null);
+                    dirCopy.setAttribute("path", "$PROJECT_DIR$/" + relativeTo(resolved, ideaProjectRoot));
+                }
+            }
         } else if (artifactNode.getType() == DIR_COPY) {
             if (artifactNode.getInfo() instanceof DirCopyPathEntry) {
                 setIdName(element, "dir-copy", null);
@@ -182,6 +204,14 @@ public class ArtifactBuilder {
             }
         }
         return element;
+    }
+
+    private Element newElement(Element element, String id, String name) {
+        Document doc = element.getOwnerDocument();
+        Element e = doc.createElement("element");
+        element.appendChild(e);
+        setIdName(e, id, name);
+        return e;
     }
 
     private String relativeTo(Path resolved, Path ideaProjectRoot) {

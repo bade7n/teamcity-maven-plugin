@@ -16,6 +16,7 @@ import org.apache.maven.plugins.annotations.*;
 import org.apache.maven.plugins.annotations.Mojo;
 import org.apache.maven.project.MavenProjectHelper;
 import org.apache.maven.shared.dependency.graph.*;
+import org.codehaus.plexus.archiver.manager.NoSuchArchiverException;
 import org.codehaus.plexus.util.xml.Xpp3Dom;
 import org.codehaus.plexus.archiver.Archiver;
 import org.codehaus.plexus.archiver.FileSet;
@@ -65,18 +66,7 @@ public class AssemblePluginMojo extends BaseTeamCityMojo {
     private PluginManager pluginManager;
 
     @Component
-    private ArchiverManager archiverManager;
-
-    @Component
     private LifeCyclePluginAnalyzer lifeCyclePluginAnalyzer;
-
-    @Parameter( defaultValue = "${project.build.outputTimestamp}" )
-    private String outputTimestamp;
-
-    @Component
-    private Map<String, Archiver> archivers;
-    @Parameter
-    private MavenArchiveConfiguration archive = new MavenArchiveConfiguration();
 
     /**
      * TeamCity Agent configuration parameters.
@@ -117,7 +107,6 @@ public class AssemblePluginMojo extends BaseTeamCityMojo {
             serverPluginWorkflow.setAgentSpec(agent.getSpec());
             findPluginConfiguration().ifPresent(plugin -> serverPluginWorkflow.getPluginDependencies().addAll(plugin.getDependencies()));
             serverPluginWorkflow.execute();
-            createArchives(serverPluginWorkflow.getAttachedArchives());
             attachArtifacts(serverPluginWorkflow.getAttachedArtifacts());
 
         } catch (IOException e) {
@@ -165,39 +154,9 @@ public class AssemblePluginMojo extends BaseTeamCityMojo {
         return Objects.equals(pluginArtifact.getGroupId(), it.getGroupId()) && Objects.equals(pluginArtifact.getArtifactId(), it.getArtifactId());
     }
 
-
-    private void createArchives(List<ResultArchive> attachedArchives) throws MojoExecutionException {
-        for (ResultArchive a: attachedArchives) {
-            createArchive(a);
-        }
-    }
-
-    private void createArchive(ResultArchive a) throws MojoExecutionException {
-        MavenArchiver archiver = new MavenArchiver();
-//        archiverManager.getArchiver("jar");
-        archiver.setArchiver((JarArchiver) archivers.get(a.getType()));
-        archiver.setOutputFile(a.getFile());
-        archiver.configureReproducibleBuild(outputTimestamp);
-        try {
-            for (FileSet fs : a.getFileSets()) {
-                archiver.getArchiver().addFileSet(fs);
-            }
-            archiver.createArchive(getSession(), getProject(), archive);
-        } catch (Exception e) {
-            throw new MojoExecutionException("Error assembling JAR " + a.getFile(), e);
-        }
-
-    }
-
-
-
     public List<Artifact> getAttachedArtifact() {
         return getProject().getAttachedArtifacts();
     }
-
-
-
-
 
     public String getServerPluginName() {
         return server.getPluginName();

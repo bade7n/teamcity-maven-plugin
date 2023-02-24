@@ -16,6 +16,6 @@ public class ArtifactNode {
     private final List<ArtifactNode> childs = new ArrayList<>();
 
     public enum ArtifactNodeType {
-        DIR, DEPENDENCY, FILE, DIR_COPY, ARTIFACT;
+        DIR, DEPENDENCY, FILE, DIR_COPY, ARTIFACT, COMPRESSED_FILE;
     }
 }
