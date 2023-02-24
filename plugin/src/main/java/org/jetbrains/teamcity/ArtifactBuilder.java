@@ -1,6 +1,5 @@
 package org.jetbrains.teamcity;
 
-import com.google.common.base.Strings;
 import lombok.Data;
 import org.apache.commons.io.FileUtils;
 import org.apache.maven.artifact.Artifact;
@@ -19,9 +18,7 @@ import javax.xml.transform.TransformerException;
 import javax.xml.transform.TransformerFactory;
 import javax.xml.transform.dom.DOMSource;
 import javax.xml.transform.stream.StreamResult;
-import java.awt.*;
 import java.io.ByteArrayOutputStream;
-import java.io.File;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
@@ -189,7 +186,7 @@ public class ArtifactBuilder {
                 CompressedPathEntry fpe = (CompressedPathEntry) artifactNode.getInfo();
                 setIdName(element, "archive", fpe.getName());
                 Element e = element;
-                if (!Strings.isNullOrEmpty(fpe.getPrefixInArchive()))
+                if (fpe.getPrefixInArchive() != null && !fpe.getPrefixInArchive().isBlank())
                     e = newElement(element, "directory", fpe.getPrefixInArchive());
                 for(Path resolved: fpe.resolve()) {
                     Element dirCopy = newElement(e, "dir-copy", null);
