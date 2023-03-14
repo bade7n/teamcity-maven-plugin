@@ -107,8 +107,8 @@ public class ArtifactBuilder {
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
         writeXml(doc, baos);
         baos.close();
-        String xmlContent = baos.toString(StandardCharsets.UTF_8);
-        Files.writeString(destinationFile, xmlContent, StandardCharsets.UTF_8);
+        String xmlContent = baos.toString(StandardCharsets.UTF_8.name());
+        Jdk8Compat.writeStringToFile(destinationFile, baos.toByteArray());
     }
 
     private static void writeXml(Document doc,
@@ -186,7 +186,7 @@ public class ArtifactBuilder {
                 CompressedPathEntry fpe = (CompressedPathEntry) artifactNode.getInfo();
                 setIdName(element, "archive", fpe.getName());
                 Element e = element;
-                if (fpe.getPrefixInArchive() != null && !fpe.getPrefixInArchive().isBlank())
+                if (fpe.getPrefixInArchive() != null && !Jdk8Compat.isBlank(fpe.getPrefixInArchive()))
                     e = newElement(element, "directory", fpe.getPrefixInArchive());
                 for(Path resolved: fpe.resolve()) {
                     Element dirCopy = newElement(e, "dir-copy", null);
@@ -241,7 +241,7 @@ public class ArtifactBuilder {
                 return an;
             }
         }
-        if (name != null && !name.isBlank()) { // skip empty directories
+        if (name != null && !Jdk8Compat.isBlank(name)) { // skip empty directories
             ArtifactNode an = new ArtifactNode(name, DIR, null);
             current.getChilds().add(an);
             return an;

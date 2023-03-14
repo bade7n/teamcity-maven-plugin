@@ -47,9 +47,9 @@ public class Server {
         if (pluginName == null)
             pluginName = project.getArtifactId();
         if (exclusions == null)
-            exclusions = List.of("org.jetbrains.teamcity");
+            exclusions = Jdk8Compat.of("org.jetbrains.teamcity");
         if (commonExclusions == null)
-            commonExclusions = List.of("org.jetbrains.teamcity");
+            commonExclusions = Jdk8Compat.of("org.jetbrains.teamcity");
         if (buildServerResources == null)
             buildServerResources = new ArrayList<>();
         if (kotlinDslDescriptorsPath == null)
@@ -64,7 +64,7 @@ public class Server {
     }
 
     private boolean ntb(String spec) {
-        return spec != null && !spec.isBlank();
+        return spec != null && !Jdk8Compat.isBlank(spec);
     }
 
     public boolean isNeedToBuildCommon() {

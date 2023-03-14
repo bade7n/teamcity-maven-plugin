@@ -58,7 +58,7 @@ public abstract class BasePluginTestCase {
         try {
             MavenProject project = rule.readMavenProject(getTestDir(projectBase));
             List<MavenProject> projects = getMavenProjectList(projectBase, project.getModules());
-            List<MavenProject> projects1 = getMavenProjectList(projectBase, List.of(additionalModules));
+            List<MavenProject> projects1 = getMavenProjectList(projectBase, Jdk8Compat.of(additionalModules));
             projects.addAll(projects1);
             projects.add(0, project);
             MavenSession session = rule.newMavenSession(project);

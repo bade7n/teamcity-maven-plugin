@@ -30,7 +30,7 @@ public class Agent {
     private String artifactId = null;
 
     public boolean isNeedToBuild() {
-        return spec != null && !spec.isBlank();
+        return spec != null && !Jdk8Compat.isBlank(spec);
     }
 
     public void setDefaultValues(String spec, MavenProject project, File projectBuildOutputDirectory) {
@@ -41,7 +41,7 @@ public class Agent {
             artifactId = project.getArtifactId();
         }
         if (exclusions == null)
-            exclusions = List.of("org.jetbrains.teamcity", "::zip");
+            exclusions = Jdk8Compat.of("org.jetbrains.teamcity", "::zip");
         descriptor.adjustDefaults(projectBuildOutputDirectory, "teamcity-agent-plugin.xml");
     }
 

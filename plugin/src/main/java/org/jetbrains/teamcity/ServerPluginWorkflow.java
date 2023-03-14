@@ -64,7 +64,7 @@ public class ServerPluginWorkflow implements ArtifactListProvider {
                     Plugin actualPlugin = plugin.get();
                     List<String> customWebappPaths = util.lookupFor((Xpp3Dom) actualPlugin.getConfiguration(), "webResources", "resource", "directory");
                     if (customWebappPaths.isEmpty())
-                        webappPaths = List.of(project.getBasedir() + "/src/main/webapp");
+                        webappPaths = Jdk8Compat.of(project.getBasedir() + "/src/main/webapp");
                     else
                         webappPaths = customWebappPaths;
                 }
@@ -116,7 +116,7 @@ public class ServerPluginWorkflow implements ArtifactListProvider {
             File resourcesFile = resourcesJar.toFile();
             List<org.codehaus.plexus.archiver.FileSet> fileSets = new ArrayList<>();
             for (String buildServerResource : getBuildServerResources()) {
-                Path path = Path.of(buildServerResource);
+                Path path = Jdk8Compat.ofPath(buildServerResource);
                 if (!path.isAbsolute())
                     path = project.getBasedir().toPath().resolve(path);
                 org.codehaus.plexus.archiver.FileSet fs = new DefaultFileSet(path.toFile()).prefixed("buildServerResources/");
@@ -166,7 +166,7 @@ public class ServerPluginWorkflow implements ArtifactListProvider {
             return parameters.getBuildServerResources();
         else {
             if (!webappPaths.isEmpty()) {
-                return webappPaths.stream().map(it -> Path.of(it, "plugins", parameters.getPluginName())).filter(it->it.toFile().exists()).map(it -> it.toString()).collect(Collectors.toList());
+                return webappPaths.stream().map(it -> Jdk8Compat.ofPath(it, "plugins", parameters.getPluginName())).filter(it->it.toFile().exists()).map(it -> it.toString()).collect(Collectors.toList());
             }
         }
         return Collections.emptyList();

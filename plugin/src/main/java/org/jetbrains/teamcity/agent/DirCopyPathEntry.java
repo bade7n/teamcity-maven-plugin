@@ -1,6 +1,7 @@
 package org.jetbrains.teamcity.agent;
 
 import lombok.Data;
+import org.jetbrains.teamcity.Jdk8Compat;
 
 import java.nio.file.Path;
 import java.util.List;
@@ -17,7 +18,7 @@ public class DirCopyPathEntry implements PathEntry {
 
     @Override
     public List<Path> resolve() {
-        return List.of(resolved);
+        return Jdk8Compat.of(resolved);
     }
 
     @Override

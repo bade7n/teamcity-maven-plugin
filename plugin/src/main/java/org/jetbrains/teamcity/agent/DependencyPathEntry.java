@@ -3,6 +3,7 @@ package org.jetbrains.teamcity.agent;
 import lombok.Data;
 import lombok.Getter;
 import org.apache.maven.artifact.Artifact;
+import org.jetbrains.teamcity.Jdk8Compat;
 
 import java.nio.file.Path;
 import java.util.List;
@@ -17,7 +18,7 @@ public class DependencyPathEntry implements PathEntry {
 
     @Override
     public List<Path> resolve() {
-        return List.of(resolved);
+        return Jdk8Compat.of(resolved);
     }
 
     @Override

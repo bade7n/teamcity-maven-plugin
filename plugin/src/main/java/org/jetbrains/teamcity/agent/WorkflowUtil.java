@@ -35,6 +35,7 @@ import org.codehaus.plexus.archiver.jar.JarArchiver;
 import org.codehaus.plexus.archiver.manager.ArchiverManager;
 import org.codehaus.plexus.archiver.manager.NoSuchArchiverException;
 import org.codehaus.plexus.util.xml.Xpp3Dom;
+import org.jetbrains.teamcity.Jdk8Compat;
 import org.jetbrains.teamcity.MultipleDependencyNodeVisitor;
 import org.jetbrains.teamcity.ResultArchive;
 import org.jetbrains.teamcity.SkipFilteringDependencyNodeVisitor;
@@ -92,7 +93,7 @@ public class WorkflowUtil {
     }
 
     public boolean isNeedToBuild(String a) {
-        return a != null && !a.isBlank();
+        return a != null && !Jdk8Compat.isBlank(a);
     }
 
 
@@ -183,7 +184,7 @@ public class WorkflowUtil {
     }
 
     public boolean isSubpathOf(Path path, Path basedir) {
-        return !basedir.relativize(path).startsWith(Path.of(".."));
+        return !basedir.relativize(path).startsWith(Jdk8Compat.ofPath(".."));
     }
 
     private Artifact findAlternativeArtifacts(Artifact a) {
@@ -373,12 +374,12 @@ public class WorkflowUtil {
                 }
             }
             URI uri = URI.create("jar:file:" + zipPath);
-            try (FileSystem zipfs = FileSystems.newFileSystem(uri, Map.of("create", "true"))) {
+            try (FileSystem zipfs = FileSystems.newFileSystem(uri, Jdk8Compat.ofMap("create", "true"))) {
                 List<Path> filesInAgentZip = Files.walk(source).collect(Collectors.toList());
                 for (Path entry : filesInAgentZip) {
                     Path relativePath = zipfs.getPath(source.relativize(entry).toString());
                     try {
-                        if (!relativePath.toString().isBlank())
+                        if (!Jdk8Compat.isBlank(relativePath.toString()))
                             Files.copy(entry, relativePath);
                     } catch (IOException e) {
                         getLog().warn("Can't zip file " + entry + " to " + relativePath, e);
@@ -421,7 +422,7 @@ public class WorkflowUtil {
     }
 
     public String getAssemblyName(String artifactId, String prefix, String suffix) {
-        if (suffix != null && !suffix.isBlank())
+        if (suffix != null && !Jdk8Compat.isBlank(suffix))
             suffix = "::" + suffix;
         else
             suffix = "";

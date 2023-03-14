@@ -6,6 +6,7 @@ import org.apache.velocity.VelocityContext;
 import org.apache.velocity.app.VelocityEngine;
 import org.apache.velocity.runtime.RuntimeConstants;
 import org.apache.velocity.runtime.resource.loader.ClasspathResourceLoader;
+import org.jetbrains.teamcity.Jdk8Compat;
 
 import java.io.File;
 import java.io.FileWriter;
@@ -17,7 +18,7 @@ import java.util.Map;
 public class ArtifactContext extends VelocityContext {
     private final String template = "artifact.vm";
     public ArtifactContext(MavenProject project, String artifactName) {
-        super(Map.of("artifactName", artifactName, "project", project));
+        super(Jdk8Compat.ofMap("artifactName", artifactName, "project", project));
     }
 
     public void generate(Path destination) throws IOException {
