@@ -44,6 +44,7 @@ import org.jetbrains.teamcity.data.ResolvedArtifact;
 import java.io.*;
 import java.lang.reflect.Field;
 import java.net.URI;
+import java.net.URISyntaxException;
 import java.nio.file.FileSystem;
 import java.nio.file.*;
 import java.util.*;
@@ -373,7 +374,8 @@ public class WorkflowUtil {
                     getLog().warn("Failed to delete " + zipPath);
                 }
             }
-            URI uri = URI.create("jar:file:" + zipPath);
+
+            URI uri = new URI("jar", zipPath.toUri().toString(), null);
             try (FileSystem zipfs = FileSystems.newFileSystem(uri, Jdk8Compat.ofMap("create", "true"))) {
                 List<Path> filesInAgentZip = Files.walk(source).collect(Collectors.toList());
                 for (Path entry : filesInAgentZip) {
@@ -387,7 +389,7 @@ public class WorkflowUtil {
                 }
             }
             return zipPath;
-        } catch (IOException e) {
+        } catch (IOException | URISyntaxException e) {
             getLog().warn(e);
             throw new MojoFailureException("Error while building " + zipName, e);
         }
