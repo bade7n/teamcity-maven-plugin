@@ -44,6 +44,8 @@ public class AgentPluginMojo extends BaseTeamCityMojo {
 
     @Parameter
     private Descriptor descriptor = new Descriptor();
+    @Parameter(property = "extras")
+    private List<SourceDest> extras;
 
     private AgentPluginWorkflow agentPluginWorkflow;
 
@@ -53,7 +55,7 @@ public class AgentPluginMojo extends BaseTeamCityMojo {
         getLog().warn("TeamCity Agent Assemble start");
         try {
             WorkflowUtil util = getWorkflowUtil();
-            Agent agent = new Agent(spec, pluginName, exclusions, tool, failOnMissingDependencies, ignoreExtraFilesIn, descriptor, getProject().getArtifactId());
+            Agent agent = new Agent(spec, pluginName, exclusions, tool, failOnMissingDependencies, ignoreExtraFilesIn, descriptor, getProject().getArtifactId(), extras);
             agent.setDefaultValues(".", getProject(), getProjectBuildOutputDirectory());
             DependencyNode rootNode = findRootNode(util);
             agentPluginWorkflow = new AgentPluginWorkflow(rootNode, agent, util, getWorkDirectory().toPath());

@@ -28,6 +28,8 @@ public class Agent {
     private Descriptor descriptor = new Descriptor();
 
     private String artifactId = null;
+    @Parameter(property = "extras")
+    private List<SourceDest> extras;
 
     public boolean isNeedToBuild() {
         return spec != null && !Jdk8Compat.isBlank(spec);
@@ -47,5 +49,9 @@ public class Agent {
 
     public boolean isCustomPluginName() {
         return !Objects.equals(artifactId, pluginName);
+    }
+
+    public boolean hasExtras() {
+        return extras != null && !extras.isEmpty();
     }
 }

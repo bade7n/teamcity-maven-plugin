@@ -144,7 +144,7 @@ public class ServerPluginWorkflow implements ArtifactListProvider {
             createdDestinations.addAll(copyResults1.getRight());
         }
         if (parameters.hasExtras()) {
-            processExtras(parameters.getExtras(), serverPluginRoot, assemblyContext);
+            util.processExtras(parameters.getExtras(), serverPluginRoot, assemblyContext);
         }
 
         Path agentPluginRoot = util.createDir(serverPluginRoot.resolve(AGENT_SUBDIR));
@@ -165,58 +165,15 @@ public class ServerPluginWorkflow implements ArtifactListProvider {
         return assemblyContext;
     }
 
-    public void processExtras(List<SourceDest> extras, Path destinationRoot, AssemblyContext assemblyContext) {
-        for (SourceDest extra : extras) {
-            Path source = absOrProject(extra.getSource());
-            if (source.toFile().exists()) {
-                Path dest = destinationRoot;
-                if (extra.hasCustomDest()) {
-                    if (extra.hasDestDir()) {
-                        dest = util.createDir(dest.resolve(extra.getDestDir()));
-                    }
-                }
-                assemblyContext.getPaths().add(new PathSet(dest));
-                if (source.toFile().isFile()) {
-                    assemblyContext.addToLastPathSet(new FilePathEntry(extra.getDestName(), source));
-                    Path fullPath = (extra.hasDestName()) ? dest.resolve(extra.getDestName()) : dest.resolve(source.getFileName());
-                    try {
-                        FileUtils.copyFile(source.toFile(), fullPath.toFile());
-                    } catch (IOException e) {
-                        util.getLog().warn(source + " can't copy to " + fullPath + " because of " + e.getMessage());
-                    }
-                } else if (source.toFile().isDirectory()) {
-                    assemblyContext.addToLastPathSet(new DirCopyPathEntry(source));
-                    try {
-                        FileUtils.copyDirectory(source.toFile(), dest.toFile());
-                    } catch (IOException e) {
-                        util.getLog().warn(source + " can't copy to " + dest + " because of " + e.getMessage());
-                    }
-                } else {
-                    util.getLog().warn(extra.getSource() + " is neither file or folder, skipping");
-                }
-            } else {
-                util.getLog().warn(extra.getSource() + " not found, skipping");
-            }
-        }
-
-    }
-
     private List<String> getBuildServerResources() {
         if (!parameters.getBuildServerResources().isEmpty())
             return parameters.getBuildServerResources();
         else {
             if (!webappPaths.isEmpty()) {
-                return webappPaths.stream().map(it -> absOrProject(it).resolve("plugins").resolve(parameters.getPluginName())).filter(it->it.toFile().exists()).map(it -> it.toString()).collect(Collectors.toList());
+                return webappPaths.stream().map(it -> util.absOrProject(it).resolve("plugins").resolve(parameters.getPluginName())).filter(it->it.toFile().exists()).map(it -> it.toString()).collect(Collectors.toList());
             }
         }
         return Collections.emptyList();
-    }
-
-    public Path absOrProject(String path) {
-        Path p = Jdk8Compat.ofPath(path);
-        if (p.isAbsolute())
-            return p;
-        return Jdk8Compat.ofPath(project.getBasedir().getPath()).resolve(p);
     }
 
     private void prepareDescriptor(AssemblyContext assemblyContext, Path serverPluginRoot) throws MojoExecutionException {

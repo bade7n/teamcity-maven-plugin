@@ -111,6 +111,11 @@ public class AgentPluginWorkflow implements ArtifactListProvider {
                 util.getLog().warn("Error while packing agent part to: " + agentPluginPath, e);
             }
         }
+        if (parameters.hasExtras()) {
+            util.processExtras(parameters.getExtras(), agentPath, assemblyContext);
+        }
+
+
         util.removeOtherFiles(parameters.getIgnoreExtraFilesIn(), agentPath, destinations);
         return assemblyContext.cloneWithRoot();
     }

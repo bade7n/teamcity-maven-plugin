@@ -1,6 +1,7 @@
 package org.jetbrains.teamcity.agent;
 
 import lombok.Data;
+import org.apache.commons.io.FileUtils;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.maven.archiver.MavenArchiveConfiguration;
 import org.apache.maven.archiver.MavenArchiver;
@@ -35,10 +36,7 @@ import org.codehaus.plexus.archiver.jar.JarArchiver;
 import org.codehaus.plexus.archiver.manager.ArchiverManager;
 import org.codehaus.plexus.archiver.manager.NoSuchArchiverException;
 import org.codehaus.plexus.util.xml.Xpp3Dom;
-import org.jetbrains.teamcity.Jdk8Compat;
-import org.jetbrains.teamcity.MultipleDependencyNodeVisitor;
-import org.jetbrains.teamcity.ResultArchive;
-import org.jetbrains.teamcity.SkipFilteringDependencyNodeVisitor;
+import org.jetbrains.teamcity.*;
 import org.jetbrains.teamcity.data.ResolvedArtifact;
 
 import java.io.*;
@@ -444,4 +442,48 @@ public class WorkflowUtil {
         }
         List<String> results = tmpStream.map(Xpp3Dom::getValue).collect(Collectors.toList());
         return results;
-    }}
+    }
+
+    public void processExtras(List<SourceDest> extras, Path destinationRoot, AssemblyContext assemblyContext) {
+        for (SourceDest extra : extras) {
+            Path source = absOrProject(extra.getSource());
+            if (source.toFile().exists()) {
+                Path dest = destinationRoot;
+                if (extra.hasCustomDest()) {
+                    if (extra.hasDestDir()) {
+                        dest = createDir(dest.resolve(extra.getDestDir()));
+                    }
+                }
+                assemblyContext.getPaths().add(new PathSet(dest));
+                if (source.toFile().isFile()) {
+                    assemblyContext.addToLastPathSet(new FilePathEntry(extra.getDestName(), source));
+                    Path fullPath = (extra.hasDestName()) ? dest.resolve(extra.getDestName()) : dest.resolve(source.getFileName());
+                    try {
+                        FileUtils.copyFile(source.toFile(), fullPath.toFile());
+                    } catch (IOException e) {
+                        getLog().warn(source + " can't copy to " + fullPath + " because of " + e.getMessage());
+                    }
+                } else if (source.toFile().isDirectory()) {
+                    assemblyContext.addToLastPathSet(new DirCopyPathEntry(source));
+                    try {
+                        FileUtils.copyDirectory(source.toFile(), dest.toFile());
+                    } catch (IOException e) {
+                        getLog().warn(source + " can't copy to " + dest + " because of " + e.getMessage());
+                    }
+                } else {
+                    getLog().warn(extra.getSource() + " is neither file or folder, skipping");
+                }
+            } else {
+                getLog().warn(extra.getSource() + " not found, skipping");
+            }
+        }
+
+    }
+
+    public Path absOrProject(String path) {
+        Path p = Jdk8Compat.ofPath(path);
+        if (p.isAbsolute())
+            return p;
+        return Jdk8Compat.ofPath(project.getBasedir().getPath()).resolve(p);
+    }
+}

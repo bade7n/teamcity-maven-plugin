@@ -40,12 +40,16 @@ public class ModuleWarTestCase extends BasePluginTestCase {
                         <element id="dir-copy" path="$PROJECT_DIR$/src/main/webapp/plugins/module-war"/>
                     </element>
                 </element>
+                <element id="directory" name="lib">
+                    <element id="dir-copy" path="$PROJECT_DIR$/2"/>
+                </element>
             </element>
             <element id="directory" name="agent">
                 <element id="archive" name="module-agent.zip">
                     <element artifact-name="TC::AGENT::module-agent::EXPLODED" id="artifact"/>
                 </element>
             </element>
+            <element id="file-copy" path="$PROJECT_DIR$/1"/>
         </root>
     </artifact>
 </component>
