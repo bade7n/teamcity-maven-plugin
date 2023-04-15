@@ -145,7 +145,7 @@ public class ServerPluginWorkflow implements ArtifactListProvider {
         if (parameters.hasExtras()) {
 
             for (SourceDest extra : parameters.getExtras()) {
-                Path source = Jdk8Compat.ofPath(project.getBasedir().getPath(), extra.getSource());
+                Path source = absOrProject(extra.getSource());
                 if (source.toFile().exists()) {
                     if (source.toFile().isFile()) {
                         assemblyContext.getPaths().add(new PathSet(serverPluginRoot));
@@ -153,11 +153,12 @@ public class ServerPluginWorkflow implements ArtifactListProvider {
                     } else if (source.toFile().isDirectory()) {
                         assemblyContext.getPaths().add(new PathSet(serverPluginRoot.resolve(extra.getDest())));
                         assemblyContext.addToLastPathSet(new DirCopyPathEntry(source));
+                    } else {
+                        util.getLog().warn(extra.getSource() + " is neither file or folder, skipping");
                     }
                 } else {
                     util.getLog().warn(extra.getSource() + " not found, skipping");
                 }
-
             }
         }
 
@@ -184,10 +185,17 @@ public class ServerPluginWorkflow implements ArtifactListProvider {
             return parameters.getBuildServerResources();
         else {
             if (!webappPaths.isEmpty()) {
-                return webappPaths.stream().map(it -> Jdk8Compat.ofPath(project.getBasedir().getPath(),  it, "plugins", parameters.getPluginName())).filter(it->it.toFile().exists()).map(it -> it.toString()).collect(Collectors.toList());
+                return webappPaths.stream().map(it -> absOrProject(it).resolve("plugins").resolve(parameters.getPluginName())).filter(it->it.toFile().exists()).map(it -> it.toString()).collect(Collectors.toList());
             }
         }
         return Collections.emptyList();
+    }
+
+    public Path absOrProject(String path) {
+        Path p = Jdk8Compat.ofPath(path);
+        if (p.isAbsolute())
+            return p;
+        return Jdk8Compat.ofPath(project.getBasedir().getPath()).resolve(p);
     }
 
     private void prepareDescriptor(AssemblyContext assemblyContext, Path serverPluginRoot) throws MojoExecutionException {

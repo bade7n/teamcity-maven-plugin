@@ -19,14 +19,13 @@ public class ModuleWarTestCase extends BasePluginTestCase {
         mojo.execute();
         StringJoiner sb = new StringJoiner("\n");
         appendTestResult(sb, mojo.getServerPluginWorkflow());
-        assertThat(
-                """
+        assertThat(sb.toString()).isEqualTo("""
                 SERVER:
                 agent/
                 agent/module-agent.zip
                 server/
                 server/module-war-teamcity-plugin-resources.jar
-                teamcity-plugin.xml""").isEqualTo(sb.toString());
+                teamcity-plugin.xml""");
         // language=XML
         assertIdeaArtifacts(mojo.getServerPluginWorkflow(), """
 <component name="ArtifactManager">
