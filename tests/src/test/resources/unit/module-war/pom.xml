@@ -17,6 +17,15 @@
                 <configuration>
                     <server>
                         <spec>.</spec>
+                        <extras>
+                            <extra>
+                                <source>1</source>
+                            </extra>
+                            <extra>
+                                <source>2</source>
+                                <destDir>server/lib</destDir>
+                            </extra>
+                        </extras>
                     </server>
                 </configuration>
                 <dependencies>

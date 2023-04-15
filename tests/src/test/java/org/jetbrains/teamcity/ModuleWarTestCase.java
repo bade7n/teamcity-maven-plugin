@@ -24,6 +24,7 @@ public class ModuleWarTestCase extends BasePluginTestCase {
                 agent/
                 agent/module-agent.zip
                 server/
+                server/lib/
                 server/module-war-teamcity-plugin-resources.jar
                 teamcity-plugin.xml""");
         // language=XML

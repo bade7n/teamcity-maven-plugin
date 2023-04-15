@@ -4,6 +4,19 @@ import lombok.Data;
 
 @Data
 public class SourceDest {
-    private final String source;
-    private final String dest;
+    private String source;
+    private String destDir;
+    private String destName;
+
+    public boolean hasCustomDest() {
+        return hasDestDir() || hasDestName();
+    }
+
+    public boolean hasDestDir() {
+        return destDir != null && !"".equalsIgnoreCase(destDir);
+    }
+
+    public boolean hasDestName() {
+        return destName != null && !"".equalsIgnoreCase(destName);
+    }
 }

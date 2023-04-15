@@ -1,6 +1,7 @@
 package org.jetbrains.teamcity;
 
 import lombok.Data;
+import org.apache.commons.io.FileUtils;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.maven.archiver.MavenArchiveConfiguration;
 import org.apache.maven.artifact.Artifact;
@@ -143,23 +144,7 @@ public class ServerPluginWorkflow implements ArtifactListProvider {
             createdDestinations.addAll(copyResults1.getRight());
         }
         if (parameters.hasExtras()) {
-
-            for (SourceDest extra : parameters.getExtras()) {
-                Path source = absOrProject(extra.getSource());
-                if (source.toFile().exists()) {
-                    if (source.toFile().isFile()) {
-                        assemblyContext.getPaths().add(new PathSet(serverPluginRoot));
-                        assemblyContext.addToLastPathSet(new FilePathEntry(extra.getDest(), source));
-                    } else if (source.toFile().isDirectory()) {
-                        assemblyContext.getPaths().add(new PathSet(serverPluginRoot.resolve(extra.getDest())));
-                        assemblyContext.addToLastPathSet(new DirCopyPathEntry(source));
-                    } else {
-                        util.getLog().warn(extra.getSource() + " is neither file or folder, skipping");
-                    }
-                } else {
-                    util.getLog().warn(extra.getSource() + " not found, skipping");
-                }
-            }
+            processExtras(parameters.getExtras(), serverPluginRoot, assemblyContext);
         }
 
         Path agentPluginRoot = util.createDir(serverPluginRoot.resolve(AGENT_SUBDIR));
@@ -178,6 +163,42 @@ public class ServerPluginWorkflow implements ArtifactListProvider {
 
         util.removeOtherFiles(parameters.getIgnoreExtraFilesIn(), serverPluginRoot, createdDestinations);
         return assemblyContext;
+    }
+
+    public void processExtras(List<SourceDest> extras, Path destinationRoot, AssemblyContext assemblyContext) {
+        for (SourceDest extra : extras) {
+            Path source = absOrProject(extra.getSource());
+            if (source.toFile().exists()) {
+                Path dest = destinationRoot;
+                if (extra.hasCustomDest()) {
+                    if (extra.hasDestDir()) {
+                        dest = util.createDir(dest.resolve(extra.getDestDir()));
+                    }
+                }
+                assemblyContext.getPaths().add(new PathSet(dest));
+                if (source.toFile().isFile()) {
+                    assemblyContext.addToLastPathSet(new FilePathEntry(extra.getDestName(), source));
+                    Path fullPath = (extra.hasDestName()) ? dest.resolve(extra.getDestName()) : dest.resolve(source.getFileName());
+                    try {
+                        FileUtils.copyFile(source.toFile(), fullPath.toFile());
+                    } catch (IOException e) {
+                        util.getLog().warn(source + " can't copy to " + fullPath + " because of " + e.getMessage());
+                    }
+                } else if (source.toFile().isDirectory()) {
+                    assemblyContext.addToLastPathSet(new DirCopyPathEntry(source));
+                    try {
+                        FileUtils.copyDirectory(source.toFile(), dest.toFile());
+                    } catch (IOException e) {
+                        util.getLog().warn(source + " can't copy to " + dest + " because of " + e.getMessage());
+                    }
+                } else {
+                    util.getLog().warn(extra.getSource() + " is neither file or folder, skipping");
+                }
+            } else {
+                util.getLog().warn(extra.getSource() + " not found, skipping");
+            }
+        }
+
     }
 
     private List<String> getBuildServerResources() {
