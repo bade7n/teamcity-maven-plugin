@@ -142,6 +142,24 @@ public class ServerPluginWorkflow implements ArtifactListProvider {
             Pair<List<ResolvedArtifact>, List<Path>> copyResults1 = util.copyTransitiveDependenciesInto(parameters.isFailOnMissingDependencies(), assemblyContext, commonNodes, commonPath);
             createdDestinations.addAll(copyResults1.getRight());
         }
+        if (parameters.hasExtras()) {
+
+            for (SourceDest extra : parameters.getExtras()) {
+                Path source = Jdk8Compat.ofPath(project.getBasedir().getPath(), extra.getSource());
+                if (source.toFile().exists()) {
+                    if (source.toFile().isFile()) {
+                        assemblyContext.getPaths().add(new PathSet(serverPluginRoot));
+                        assemblyContext.addToLastPathSet(new FilePathEntry(extra.getDest(), source));
+                    } else if (source.toFile().isDirectory()) {
+                        assemblyContext.getPaths().add(new PathSet(serverPluginRoot.resolve(extra.getDest())));
+                        assemblyContext.addToLastPathSet(new DirCopyPathEntry(source));
+                    }
+                } else {
+                    util.getLog().warn(extra.getSource() + " not found, skipping");
+                }
+
+            }
+        }
 
         Path agentPluginRoot = util.createDir(serverPluginRoot.resolve(AGENT_SUBDIR));
         for (ResultArtifact ra : agentAttachedRuntimeArtifacts) {
@@ -166,7 +184,7 @@ public class ServerPluginWorkflow implements ArtifactListProvider {
             return parameters.getBuildServerResources();
         else {
             if (!webappPaths.isEmpty()) {
-                return webappPaths.stream().map(it -> Jdk8Compat.ofPath(it, "plugins", parameters.getPluginName())).filter(it->it.toFile().exists()).map(it -> it.toString()).collect(Collectors.toList());
+                return webappPaths.stream().map(it -> Jdk8Compat.ofPath(project.getBasedir().getPath(),  it, "plugins", parameters.getPluginName())).filter(it->it.toFile().exists()).map(it -> it.toString()).collect(Collectors.toList());
             }
         }
         return Collections.emptyList();

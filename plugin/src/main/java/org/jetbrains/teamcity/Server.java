@@ -39,6 +39,8 @@ public class Server {
     private boolean failOnMissingDependencies = true;
     @Parameter(defaultValue = "true", property = "excludeAgent")
     private boolean excludeAgent = true;
+    @Parameter(property = "extras")
+    private List<SourceDest> extras;
 
 
     public void setDefaultValues(String spec, MavenProject project, File projectBuildOutputDirectory) {
@@ -69,5 +71,9 @@ public class Server {
 
     public boolean isNeedToBuildCommon() {
         return ntb(commonSpec);
+    }
+
+    public boolean hasExtras() {
+        return extras != null && !extras.isEmpty();
     }
 }
