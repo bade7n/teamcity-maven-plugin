@@ -444,7 +444,7 @@ public class WorkflowUtil {
         return results;
     }
 
-    public void processExtras(List<SourceDest> extras, Path destinationRoot, AssemblyContext assemblyContext) {
+    public void processExtras(List<SourceDest> extras, Path destinationRoot, AssemblyContext assemblyContext, List<Path> destinations) {
         for (SourceDest extra : extras) {
             Path source = absOrProject(extra.getSource());
             if (source.toFile().exists()) {
@@ -458,6 +458,7 @@ public class WorkflowUtil {
                 if (source.toFile().isFile()) {
                     assemblyContext.addToLastPathSet(new FilePathEntry(extra.getDestName(), source));
                     Path fullPath = (extra.hasDestName()) ? dest.resolve(extra.getDestName()) : dest.resolve(source.getFileName());
+                    destinations.add(fullPath);
                     try {
                         FileUtils.copyFile(source.toFile(), fullPath.toFile());
                     } catch (IOException e) {
@@ -465,6 +466,7 @@ public class WorkflowUtil {
                     }
                 } else if (source.toFile().isDirectory()) {
                     assemblyContext.addToLastPathSet(new DirCopyPathEntry(source));
+                    destinations.add(dest);
                     try {
                         FileUtils.copyDirectory(source.toFile(), dest.toFile());
                     } catch (IOException e) {

@@ -112,7 +112,7 @@ public class AgentPluginWorkflow implements ArtifactListProvider {
             }
         }
         if (parameters.hasExtras()) {
-            util.processExtras(parameters.getExtras(), agentPath, assemblyContext);
+            util.processExtras(parameters.getExtras(), agentPath, assemblyContext, destinations);
         }
 
 

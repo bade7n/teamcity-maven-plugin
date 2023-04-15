@@ -1,7 +1,6 @@
 package org.jetbrains.teamcity;
 
 import lombok.Data;
-import org.apache.commons.io.FileUtils;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.maven.archiver.MavenArchiveConfiguration;
 import org.apache.maven.artifact.Artifact;
@@ -144,7 +143,7 @@ public class ServerPluginWorkflow implements ArtifactListProvider {
             createdDestinations.addAll(copyResults1.getRight());
         }
         if (parameters.hasExtras()) {
-            util.processExtras(parameters.getExtras(), serverPluginRoot, assemblyContext);
+            util.processExtras(parameters.getExtras(), serverPluginRoot, assemblyContext, createdDestinations);
         }
 
         Path agentPluginRoot = util.createDir(serverPluginRoot.resolve(AGENT_SUBDIR));
