@@ -21,6 +21,7 @@ public class ModuleWarTestCase extends BasePluginTestCase {
         appendTestResult(sb, mojo.getServerPluginWorkflow());
         assertThat(sb.toString()).isEqualTo("""
                 SERVER:
+                1
                 agent/
                 agent/module-agent.zip
                 server/
