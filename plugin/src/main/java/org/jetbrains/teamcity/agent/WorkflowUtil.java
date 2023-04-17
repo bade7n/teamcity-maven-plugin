@@ -466,7 +466,7 @@ public class WorkflowUtil {
                     }
                 } else if (source.toFile().isDirectory()) {
                     assemblyContext.addToLastPathSet(new DirCopyPathEntry(source));
-                    destinations.add(dest);
+                    destinations.addAll(findPathsInRelativeTo(source, dest));
                     try {
                         FileUtils.copyDirectory(source.toFile(), dest.toFile());
                     } catch (IOException e) {
@@ -480,6 +480,15 @@ public class WorkflowUtil {
             }
         }
 
+    }
+
+    public List<Path> findPathsInRelativeTo(Path source, Path dest) {
+        try {
+            return  Files.walk(source).map(it -> source.relativize(it)).map(it -> dest.resolve(it)).collect(Collectors.toList());
+        } catch (IOException e) {
+            getLog().warn("Can't process files in " + source + " relative to " + dest, e);
+            return Collections.emptyList();
+        }
     }
 
     public Path absOrProject(String path) {

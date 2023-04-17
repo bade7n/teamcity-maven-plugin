@@ -98,6 +98,10 @@ public class AgentPluginWorkflow implements ArtifactListProvider {
             }
             assemblyContext.getPaths().add(new PathSet(agentPath).with(new FilePathEntry(TEAMCITY_PLUGIN_XML, targetDescriptorPath.toPath()))); // add it anyway if it exists or not
 
+            if (parameters.hasExtras()) {
+                util.processExtras(parameters.getExtras(), agentPath, assemblyContext, destinations);
+            }
+
             Path agentPluginPath = workDirectory.resolve("agent");
             try {
                 String zipName = parameters.getPluginName() + ".zip";
@@ -111,10 +115,6 @@ public class AgentPluginWorkflow implements ArtifactListProvider {
                 util.getLog().warn("Error while packing agent part to: " + agentPluginPath, e);
             }
         }
-        if (parameters.hasExtras()) {
-            util.processExtras(parameters.getExtras(), agentPath, assemblyContext, destinations);
-        }
-
 
         util.removeOtherFiles(parameters.getIgnoreExtraFilesIn(), agentPath, destinations);
         return assemblyContext.cloneWithRoot();
