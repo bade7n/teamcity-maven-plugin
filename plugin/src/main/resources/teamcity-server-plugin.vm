@@ -7,7 +7,7 @@
 #if( $project.description )
         <description>${project.description}</description>
 #end
-        <version>${project.version}</version>
+        <version>${param.descriptor.pluginVersion}</version>
 #if( $project.organization )
         <vendor>
             <name>$!{project.organization.name}</name>

@@ -35,7 +35,7 @@ public class Agent {
         return spec != null && !Jdk8Compat.isBlank(spec);
     }
 
-    public void setDefaultValues(String spec, MavenProject project, File projectBuildOutputDirectory) {
+    public void setDefaultValues(String spec, MavenProject project, File projectBuildOutputDirectory, String pluginVersion) {
         if (Objects.isNull(this.spec))
             this.spec = spec;
         if (pluginName == null) {
@@ -44,7 +44,7 @@ public class Agent {
         }
         if (exclusions == null)
             exclusions = Jdk8Compat.of("org.jetbrains.teamcity", "::zip");
-        descriptor.adjustDefaults(projectBuildOutputDirectory, "teamcity-agent-plugin.xml");
+        descriptor.adjustDefaults(projectBuildOutputDirectory, "teamcity-agent-plugin.xml", project, pluginVersion);
     }
 
     public boolean isCustomPluginName() {

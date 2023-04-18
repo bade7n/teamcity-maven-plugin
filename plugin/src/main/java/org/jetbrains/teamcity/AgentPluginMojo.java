@@ -48,7 +48,8 @@ public class AgentPluginMojo extends BaseTeamCityMojo {
     private List<SourceDest> extras;
 
     private AgentPluginWorkflow agentPluginWorkflow;
-
+    @Parameter( defaultValue = "${teamcity.plugin.version}", readonly = true )
+    private String pluginVersion;
 
     @Override
     public void execute() throws MojoExecutionException, MojoFailureException {
@@ -56,7 +57,7 @@ public class AgentPluginMojo extends BaseTeamCityMojo {
         try {
             WorkflowUtil util = getWorkflowUtil();
             Agent agent = new Agent(spec, pluginName, exclusions, tool, failOnMissingDependencies, ignoreExtraFilesIn, descriptor, getProject().getArtifactId(), extras);
-            agent.setDefaultValues(".", getProject(), getProjectBuildOutputDirectory());
+            agent.setDefaultValues(".", getProject(), getProjectBuildOutputDirectory(), pluginVersion);
             DependencyNode rootNode = findRootNode(util);
             agentPluginWorkflow = new AgentPluginWorkflow(rootNode, agent, util, getWorkDirectory().toPath());
             agentPluginWorkflow.execute();

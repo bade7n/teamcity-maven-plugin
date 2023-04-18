@@ -60,10 +60,13 @@ public class AssemblePluginMojo extends BaseTeamCityMojo {
     private LifecycleExecutor lifecycleExecutor;
     @Parameter( defaultValue = "${mojoExecution}", readonly = true )
     private MojoExecution execution;
+    @Parameter( defaultValue = "${teamcity.plugin.version}", readonly = true )
+    private String pluginVersion;
     @Parameter( defaultValue = "${plugin}", readonly = true )
     private PluginDescriptor pluginDescriptor;
     @Component
     private PluginManager pluginManager;
+
 
     @Component
     private LifeCyclePluginAnalyzer lifeCyclePluginAnalyzer;
@@ -92,7 +95,7 @@ public class AssemblePluginMojo extends BaseTeamCityMojo {
     @Override
     public void execute() throws MojoExecutionException, MojoFailureException {
         getLog().warn("TeamCityAssemble start");
-        setDefaultconfigurationValues();
+        setDefaultconfigurationValues(pluginVersion);
         try {
 
             WorkflowUtil util = getWorkflowUtil();
@@ -115,15 +118,15 @@ public class AssemblePluginMojo extends BaseTeamCityMojo {
         }
     }
 
-    private void setDefaultconfigurationValues() {
+    private void setDefaultconfigurationValues(String pluginVersion) {
         PluginExecution pluginExecution = findPluginExecution();
         if (pluginExecution != null) {
             Xpp3Dom configuration = (Xpp3Dom) pluginExecution.getConfiguration();
             for (Xpp3Dom node:configuration.getChildren()) {
                 if ("agent".equalsIgnoreCase(node.getName()))
-                    agent.setDefaultValues(".", getProject(), getProjectBuildOutputDirectory());
+                    agent.setDefaultValues(".", getProject(), getProjectBuildOutputDirectory(), pluginVersion);
                 if ("server".equalsIgnoreCase(node.getName()))
-                    server.setDefaultValues(".", getProject(), getProjectBuildOutputDirectory());
+                    server.setDefaultValues(".", getProject(), getProjectBuildOutputDirectory(), pluginVersion);
             }
         }
     }

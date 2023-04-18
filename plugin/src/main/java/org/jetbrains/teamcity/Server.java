@@ -1,13 +1,11 @@
 package org.jetbrains.teamcity;
 
-import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import org.apache.maven.plugins.annotations.Parameter;
 import org.apache.maven.project.MavenProject;
 
 import java.io.File;
-import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -43,7 +41,7 @@ public class Server {
     private List<SourceDest> extras;
 
 
-    public void setDefaultValues(String spec, MavenProject project, File projectBuildOutputDirectory) {
+    public void setDefaultValues(String spec, MavenProject project, File projectBuildOutputDirectory, String pluginVersion) {
         if (Objects.isNull(this.spec))
             this.spec = spec;
         if (pluginName == null)
@@ -56,9 +54,7 @@ public class Server {
             buildServerResources = new ArrayList<>();
         if (kotlinDslDescriptorsPath == null)
             kotlinDslDescriptorsPath = projectBuildOutputDirectory.toPath().resolve("kotlin-dsl").toFile();
-        if (descriptor.getPath() == null) {
-            descriptor.setPath(projectBuildOutputDirectory.toPath().resolve("META-INF").resolve("teamcity-plugin.xml").toFile());
-        }
+        descriptor.adjustDefaults(projectBuildOutputDirectory, "teamcity-plugin.xml", project, pluginVersion);
     }
 
     public boolean isNeedToBuild() {
