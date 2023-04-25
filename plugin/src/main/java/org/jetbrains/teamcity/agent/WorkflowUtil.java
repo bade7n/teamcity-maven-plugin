@@ -7,10 +7,13 @@ import org.apache.maven.archiver.MavenArchiveConfiguration;
 import org.apache.maven.archiver.MavenArchiver;
 import org.apache.maven.artifact.Artifact;
 import org.apache.maven.artifact.ArtifactUtils;
+import org.apache.maven.artifact.DefaultArtifact;
 import org.apache.maven.artifact.factory.ArtifactFactory;
 import org.apache.maven.artifact.resolver.filter.ArtifactFilter;
 import org.apache.maven.execution.MavenSession;
 import org.apache.maven.model.Dependency;
+import org.apache.maven.model.Model;
+import org.apache.maven.model.io.xpp3.MavenXpp3Reader;
 import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugin.MojoFailureException;
 import org.apache.maven.plugin.logging.Log;
@@ -36,6 +39,7 @@ import org.codehaus.plexus.archiver.jar.JarArchiver;
 import org.codehaus.plexus.archiver.manager.ArchiverManager;
 import org.codehaus.plexus.archiver.manager.NoSuchArchiverException;
 import org.codehaus.plexus.util.xml.Xpp3Dom;
+import org.codehaus.plexus.util.xml.pull.XmlPullParserException;
 import org.jetbrains.teamcity.*;
 import org.jetbrains.teamcity.data.ResolvedArtifact;
 
@@ -87,7 +91,7 @@ public class WorkflowUtil {
     private Stream<Artifact> getArtifactList(MavenProject it) {
         return new ArrayList<Artifact>() {{
             add(it.getArtifact());
-            addAll(it.getArtifacts());
+            addAll(it.getAttachedArtifacts());
         }}.stream();
     }
 
@@ -323,7 +327,31 @@ public class WorkflowUtil {
     }
 
     private boolean isReactorProject(Artifact a) {
-        return reactorProjectList.contains(a);
+        // reactorProjectList contains also a libraries, in order to distinguish we can check location (should be under project.basedir) somewhere or
+        // version should match multi-module project.
+        if (reactorProjectList.contains(a)) {
+            Optional<Artifact> a1 = reactorProjectList.stream().filter(it -> it.equals(a)).findFirst();
+            if (a1.isPresent()) {
+
+//                List<Artifact> strings = new ArrayList<>();
+//                Path baseDir = project.getParent().getBasedir().toPath();
+//                strings.add(project.getParent().getArtifact());
+//                MavenXpp3Reader reader = new MavenXpp3Reader();
+//                for (String module: project.getParent().getModules()) {
+//                    try {
+//                        FileInputStream fis = new FileInputStream(baseDir.resolve(module).resolve("pom.xml").toFile());
+//                        Model m = reader.read(fis);
+//                        strings.add(artifactFactory.createProjectArtifact(m.getGroupId(), m.getArtifactId(), m.getVersion()));
+//                    } catch (IOException | XmlPullParserException e) {
+//                        throw new RuntimeException(e);
+//                    }
+//                }
+//                boolean hasCommonRootPath = a1.get().getFile().getAbsolutePath().startsWith(project.getParent().getBasedir().getAbsolutePath());
+                Artifact artifact = a1.get();
+                return artifact.getVersion().equalsIgnoreCase(project.getVersion()) && project.getGroupId().equalsIgnoreCase(artifact.getGroupId());
+            }
+        }
+        return false;
     }
 
     public Path getJarFile(Path basedir, String resultFinalName, String classifier) {
