@@ -91,7 +91,7 @@ public class WorkflowUtil {
     private Stream<Artifact> getArtifactList(MavenProject it) {
         return new ArrayList<Artifact>() {{
             add(it.getArtifact());
-            addAll(it.getAttachedArtifacts());
+            addAll(it.getArtifacts());
         }}.stream();
     }
 
