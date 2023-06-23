@@ -30,7 +30,9 @@ Packaging agent part for example:
         <artifactId>teamcity-maven-plugin</artifactId>
         <configuration>
           <agent>
+              <!-- <spec> syntax are: `groupId:artifactId:version` parts can be skipped to `:artifactId` -->
             <spec>:my-agent-plugin</spec> <!-- Reference to an agent plugin module, if not set than current project -->
+            <!-- by default <pluginName> will be set to ${project.artifactId} -->
             <pluginName>myPlugin</pluginName>
             <descriptor><!-- For a full reference of options controlling plugin descriptor
             look at org.jetbrains.teamcity.Descriptor -->
@@ -65,12 +67,13 @@ Server part example:
         <configuration>
           <server>
             <spec>somegroup:my-server-plugin</spec>
+              <!-- by default <pluginName> will be set to ${project.artifactId} -->
             <pluginName>myPlugin</pluginName>
             <descriptor><!-- For a full reference of options controlling plugin descriptor
             look at org.jetbrains.teamcity.Descriptor -->
               <nodeResponsibilitiesAware>true</nodeResponsibilitiesAware>
             </descriptor>
-            <buildServerResources>webapp/plugins/myPlugin</buildServerResources>
+            <buildServerResources>src/main/webapp/plugins/myPlugin</buildServerResources>
               <!-- could be skipped if matches webapp/plugins/${project.artifactId} -->
           </server>
         </configuration>
@@ -121,11 +124,12 @@ Or all at once
                     </agent>
                     <server>
                         <spec>:my-server-part</spec>
+                        <!-- by default <pluginName> will be set to ${project.artifactId} -->
                         <pluginName>**myPlugin**</pluginName>
                         <!-- customize plugin descriptor if needed -->
                         <descriptor></descriptor>
                         <!-- specify path to jsp's, path should ends on $pluginName  -->
-                        <buildServerResources>webapp/plugins/**myPlugin**</buildServerResources>
+                        <buildServerResources>src/main/webapp/plugins/**myPlugin**</buildServerResources>
                     </server>
                 </configuration>
             </plugin>
@@ -135,3 +139,47 @@ Or all at once
 ```
 
 The result plugin zip distribution will be created in target/teamcity.
+
+Or the shortest option
+```xml
+<project>
+    <artifactId>my-agent-part</artifactId>
+    <type>jar</type>
+</project>
+<project>
+    <artifactId>my-teamcity-plugin</artifactId>
+    <packaging>war</packaging>
+    
+    <dependencies>
+        <artifactId>my-agent-part</artifactId>
+        <scope>runtime</scope>
+    </dependencies>
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.jetbrains.teamcity</groupId>
+                <artifactId>teamcity-maven-plugin</artifactId>
+                <configuration>
+                    <agent>
+                        <spec>:my-agent-part</spec>
+                    </agent>
+                    <server>
+                        <!-- by default <spec> will be set to current project but since its war, it should create attachClasses-->
+                        <!-- by default <pluginName> will be set to ${project.artifactId} -->
+                        <pluginName>**myPlugin**</pluginName>
+                        <!-- specify path to jsp's, path should ends on $pluginName  -->
+                        <buildServerResources>src/main/webapp/plugins/**myPlugin**</buildServerResources>
+                    </server>
+                </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-war-plugin</artifactId>
+                <configuration>
+                    <attachClasses>true</attachClasses>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+</project>
+```
