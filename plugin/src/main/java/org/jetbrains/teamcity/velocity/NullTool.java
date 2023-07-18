@@ -10,7 +10,7 @@ import org.apache.velocity.context.Context;
  *   instance of the current context within itself as 'ctx'.
  *   And, of course, the NullTool is assumed to be available as 'null'.
  * </p>
- * <p><pre>
+ * <pre>
  * Example uses:
  *  $foo                              -> bar
  *  $null.isNull($foo)                -> false
@@ -25,7 +25,7 @@ import org.apache.velocity.context.Context;
  *  $foo                              -> hoge
  *  $null.set($ctx, $foo, $null.null)
  *  $foo                              -> $foo (null)
- * </pre></p>
+ * </pre>
  *
  * <p>This tool is entirely threadsafe, and has no instance members.
  * It may be used in any scope (request, session, or application).

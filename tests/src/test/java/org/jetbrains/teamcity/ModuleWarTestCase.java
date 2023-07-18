@@ -100,7 +100,8 @@ public class ModuleWarTestCase extends BasePluginTestCase {
                 <teamcity-agent-plugin xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
                                        xsi:noNamespaceSchemaLocation="urn:schemas-jetbrains-com:teamcity-agent-plugin-v1-xml">
                                 
-                        <plugin-deployment use-separate-classloader="false"/>
+                        <plugin-deployment
+                        />
                 </teamcity-agent-plugin>""");
         Descriptor descriptor = mojo.getAgent().getDescriptor();
         descriptor.setUseSeparateClassloader(true);
@@ -112,7 +113,9 @@ public class ModuleWarTestCase extends BasePluginTestCase {
                 <teamcity-agent-plugin xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
                                        xsi:noNamespaceSchemaLocation="urn:schemas-jetbrains-com:teamcity-agent-plugin-v1-xml">
                 
-                        <plugin-deployment use-separate-classloader="true"/>
+                        <plugin-deployment 
+                                        use-separate-classloader="true"
+                        />
                         <dependencies>
                                 <plugin name="plugin1"/>
                                 <plugin name="plugin2"/>

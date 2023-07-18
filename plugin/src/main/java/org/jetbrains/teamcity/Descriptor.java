@@ -22,8 +22,6 @@ public class Descriptor {
     private Boolean nodeResponsibilitiesAware;
     @Parameter(defaultValue = "")
     private Boolean useSeparateClassloader;
-    @Parameter(defaultValue = "false")
-    private Boolean requireKotlinDsl;
     @Parameter
     private List<String> pluginDependencies = new ArrayList<>();
     @Parameter

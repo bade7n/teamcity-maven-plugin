@@ -218,7 +218,7 @@ public class ServerPluginWorkflow implements ArtifactListProvider {
         return explicitDestinations;
     }
 
-    private List<Path> assembleKotlinDsl(AssemblyContext assemblyContext, Path serverPluginRoot) {
+    private List<Path> assembleKotlinDsl(AssemblyContext assemblyContext, Path serverPluginRoot) throws MojoExecutionException {
         List<Path> destinations = new ArrayList<>();
         if (parameters.getKotlinDslDescriptorsPath().exists()) {
             Path kotlinDslPath = util.createDir(serverPluginRoot.resolve("kotlin-dsl"));
@@ -238,6 +238,10 @@ public class ServerPluginWorkflow implements ArtifactListProvider {
             } catch (IOException e) {
                 util.getLog().warn("Can't copy " + parameters.getKotlinDslDescriptorsPath() + " to " + kotlinDslPath);
             }
+        } else if (parameters.isRequireKotlinDsl()) {
+            String content = "`requireKotlinDsl` set to true but sources not found in " + parameters.getKotlinDslDescriptorsPath().getPath();
+            util.getLog().error(content);
+            throw new MojoExecutionException(content);
         }
         return destinations;
     }

@@ -39,7 +39,8 @@ public class Server {
     private boolean excludeAgent = true;
     @Parameter(property = "extras")
     private List<SourceDest> extras;
-
+    @Parameter(defaultValue = "false")
+    private boolean requireKotlinDsl;
 
     public void setDefaultValues(String spec, MavenProject project, File projectBuildOutputDirectory, String pluginVersion) {
         if (Objects.isNull(this.spec))
