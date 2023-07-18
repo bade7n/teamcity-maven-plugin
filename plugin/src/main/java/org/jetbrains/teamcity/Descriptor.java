@@ -16,12 +16,14 @@ public class Descriptor {
     private boolean doNotGenerate;
     @Parameter(defaultValue = "false")
     private boolean failOnMissing;
+    @Parameter(defaultValue = "")
+    private Boolean allowRuntimeReload;
+    @Parameter(defaultValue = "")
+    private Boolean nodeResponsibilitiesAware;
+    @Parameter(defaultValue = "")
+    private Boolean useSeparateClassloader;
     @Parameter(defaultValue = "false")
-    private boolean allowRuntimeReload;
-    @Parameter(defaultValue = "false")
-    private boolean nodeResponsibilitiesAware;
-    @Parameter(defaultValue = "false")
-    private boolean useSeparateClassloader;
+    private Boolean requireKotlinDsl;
     @Parameter
     private List<String> pluginDependencies = new ArrayList<>();
     @Parameter

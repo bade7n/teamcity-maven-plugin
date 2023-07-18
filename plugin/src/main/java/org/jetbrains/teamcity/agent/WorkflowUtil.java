@@ -42,6 +42,7 @@ import org.codehaus.plexus.util.xml.Xpp3Dom;
 import org.codehaus.plexus.util.xml.pull.XmlPullParserException;
 import org.jetbrains.teamcity.*;
 import org.jetbrains.teamcity.data.ResolvedArtifact;
+import org.jetbrains.teamcity.velocity.NullTool;
 
 import java.io.*;
 import java.lang.reflect.Field;
@@ -385,6 +386,7 @@ public class WorkflowUtil {
             ve.setProperty("resource.loader.classpath.class", ClasspathResourceLoader.class.getName());
             context.put("project", project);
             context.put("param", parameters);
+            context.put("null", new NullTool());
             Template template = ve.getTemplate(templateName);
             template.merge(context, fw);
         }
@@ -523,6 +525,6 @@ public class WorkflowUtil {
         Path p = Jdk8Compat.ofPath(path);
         if (p.isAbsolute())
             return p;
-        return Jdk8Compat.ofPath(project.getBasedir().getPath()).resolve(p);
+        return Jdk8Compat.ofPath(project.getBasedir().getPath()).resolve(p).toAbsolutePath();
     }
 }

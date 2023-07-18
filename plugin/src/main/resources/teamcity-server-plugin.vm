@@ -15,7 +15,17 @@
         </vendor>
 #end
     </info>
-    <deployment use-separate-classloader="${param.descriptor.useSeparateClassloader}" allow-runtime-reload="${param.descriptor.allowRuntimeReload}" node-responsibilities-aware="${param.descriptor.nodeResponsibilitiesAware}"/>
+    <deployment
+        #if($null.isNotNull($param.descriptor.useSeparateClassloader))
+                use-separate-classloader="${param.descriptor.useSeparateClassloader}"
+        #end
+        #if($null.isNotNull($param.descriptor.allowRuntimeReload))
+                allow-runtime-reload="${param.descriptor.allowRuntimeReload}"
+        #end
+        #if($null.isNotNull($param.descriptor.nodeResponsibilitiesAware))
+                node-responsibilities-aware="${param.descriptor.nodeResponsibilitiesAware}"
+        #end
+    />
     #if( $param.descriptor.pluginDependencies || $param.descriptor.toolDependencies)
     <dependencies>
         #foreach( $dependency in $param.descriptor.pluginDependencies )

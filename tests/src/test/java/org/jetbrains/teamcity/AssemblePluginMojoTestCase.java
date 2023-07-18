@@ -30,7 +30,8 @@ public class AssemblePluginMojoTestCase extends BasePluginTestCase {
                                        xsi:noNamespaceSchemaLocation="urn:schemas-jetbrains-com:teamcity-agent-plugin-v1-xml">
                     <!-- @@AGENT_PLUGIN_NAME=simple2@@ -->
                         
-                        <plugin-deployment use-separate-classloader="false"/>
+                        <plugin-deployment
+                        />
                         <dependencies>
                                 <plugin name="java-dowser"/>
                                 <tool name="ant"/>
@@ -106,7 +107,8 @@ public class AssemblePluginMojoTestCase extends BasePluginTestCase {
                 <teamcity-agent-plugin xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
                                        xsi:noNamespaceSchemaLocation="urn:schemas-jetbrains-com:teamcity-agent-plugin-v1-xml">
                         
-                        <plugin-deployment use-separate-classloader="false"/>
+                        <plugin-deployment
+                        />
                         <dependencies>
                                 <plugin name="java-dowser"/>
                                 <tool name="ant"/>
@@ -124,7 +126,8 @@ public class AssemblePluginMojoTestCase extends BasePluginTestCase {
                         <display-name>Test</display-name>
                         <version>1.1-SNAPSHOT</version>
                     </info>
-                    <deployment use-separate-classloader="false" allow-runtime-reload="false" node-responsibilities-aware="false"/>
+                    <deployment
+                    />
                 </teamcity-plugin>
                 """);
 

@@ -8,7 +8,11 @@
     #if($param.tool)
         <tool-deployment/>
     #else
-        <plugin-deployment use-separate-classloader="${param.descriptor.useSeparateClassloader}"/>
+        <plugin-deployment
+                #if($null.isNotNull($param.descriptor.useSeparateClassloader))
+                        use-separate-classloader="${param.descriptor.useSeparateClassloader}"
+                #end
+        />
         #if( $param.descriptor.pluginDependencies || $param.descriptor.toolDependencies)
         <dependencies>
             #foreach( $dependency in $param.descriptor.pluginDependencies )
