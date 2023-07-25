@@ -404,7 +404,9 @@ public class WorkflowUtil {
             }
 
             URI uri = new URI("jar", zipPath.toUri().toString(), null);
-            try (FileSystem zipfs = FileSystems.newFileSystem(uri, Jdk8Compat.ofMap("create", "true"))) {
+            Optional<Path> largeFiles = Files.walk(source).filter(it -> it.toFile().length() > 50 * 1024 * 1024).findFirst();
+            Map<String, String> env = largeFiles.isPresent() ? Jdk8Compat.ofMap("create", "true", "useTempFile", "true") : Jdk8Compat.ofMap("create", "true");
+            try (FileSystem zipfs = FileSystems.newFileSystem(uri, env)) {
                 List<Path> filesInAgentZip = Files.walk(source).collect(Collectors.toList());
                 for (Path entry : filesInAgentZip) {
                     Path relativePath = zipfs.getPath(source.relativize(entry).toString());
