@@ -17,6 +17,8 @@ public class Server {
     private String spec;
     @Parameter(defaultValue = "${project.artifactId}")
     private String pluginName;
+    @Parameter(defaultValue = "")
+    private String intellijProjectPath;
     @Parameter
     private Descriptor descriptor = new Descriptor();
     @Parameter(defaultValue = "org.jetbrains.teamcity")

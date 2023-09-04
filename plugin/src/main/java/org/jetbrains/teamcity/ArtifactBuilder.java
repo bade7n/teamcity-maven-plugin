@@ -22,7 +22,6 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
@@ -35,12 +34,12 @@ public class ArtifactBuilder {
     private final Log log;
     private final WorkflowUtil util;
 
-    public List<Path> build(List<AssemblyContext> assemblyContexts) {
+    public List<Path> build(List<AssemblyContext> assemblyContexts, String intellijProjectPath) {
         getLog().debug("Building " + assemblyContexts);
         List<Path> generatedArtifacts = new ArrayList<>();
         for (AssemblyContext ac: assemblyContexts) {
             try {
-                generatedArtifacts.add(generateAssembly(ac));
+                generatedArtifacts.add(generateAssembly(ac, intellijProjectPath));
             } catch (Exception e) {
                 getLog().warn("Error while assembling " + assemblyContexts, e);
             }
@@ -48,10 +47,14 @@ public class ArtifactBuilder {
         return generatedArtifacts;
     }
 
-    public Path generateAssembly(AssemblyContext ac) throws ParserConfigurationException, IOException, TransformerException {
+    public Path generateAssembly(AssemblyContext ac, String intellijProjectPath) throws ParserConfigurationException, IOException, TransformerException {
         Path intellijProject = util.getProject().getBasedir().toPath();
-        if (util.getProject().getParent() != null) {
-            intellijProject = util.getProject().getParent().getBasedir().toPath();
+        if (intellijProjectPath != null && !"".equalsIgnoreCase(intellijProjectPath)) {
+            intellijProject = intellijProject.resolve(intellijProjectPath).normalize();
+        } else {
+            if (util.getProject().getParent() != null) {
+                intellijProject = util.getProject().getParent().getBasedir().toPath();
+            }
         }
         IJArtifactParameters params = new IJArtifactParameters();
         params.setArtifactPath(intellijProject.relativize(ac.getRoot()));

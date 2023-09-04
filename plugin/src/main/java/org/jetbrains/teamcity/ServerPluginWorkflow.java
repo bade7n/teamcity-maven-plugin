@@ -25,12 +25,14 @@ import java.util.stream.Collectors;
 
 import static java.nio.file.StandardCopyOption.REPLACE_EXISTING;
 import static org.jetbrains.teamcity.agent.AgentPluginWorkflow.TEAMCITY_AGENT_PLUGIN_CLASSIFIER;
+import static org.jetbrains.teamcity.agent.AgentPluginWorkflow.TEAMCITY_TOOL_CLASSIFIER;
 import static org.jetbrains.teamcity.agent.WorkflowUtil.TEAMCITY_PLUGIN_XML;
 
 @Data
 public class ServerPluginWorkflow implements ArtifactListProvider {
     public static final String TEAMCITY_PLUGIN_CLASSIFIER = "teamcity-plugin";
     public static final String AGENT_SUBDIR = "agent";
+    public static final String BUNDLED_SUBDIR = "bundled";
 
     private final DependencyNode rootNode;
     private final Server parameters;
@@ -90,7 +92,7 @@ public class ServerPluginWorkflow implements ArtifactListProvider {
         }
 
 
-        ideaArtifactList.addAll(new ArtifactBuilder(util.getLog(), util).build(getAssemblyContexts()));
+        ideaArtifactList.addAll(new ArtifactBuilder(util.getLog(), util).build(getAssemblyContexts(), parameters.getIntellijProjectPath()));
     }
 
     private AssemblyContext buildServerPlugin(Path serverPluginRoot, DependencyNode rootNode) throws MojoExecutionException, IOException {
@@ -132,6 +134,8 @@ public class ServerPluginWorkflow implements ArtifactListProvider {
         List<Artifact> agentPluginDependencies = dependencies.get(Boolean.TRUE);
         List<Path> explicitAgentDestinations = assembleExplicitAgentDependencies(serverPluginRoot, assemblyContext, agentPluginDependencies);
         createdDestinations.addAll(explicitAgentDestinations);
+        List<Path> explicitBundledDestinations = assembleBundledDependencies(serverPluginRoot, assemblyContext, agentPluginDependencies);
+        createdDestinations.addAll(explicitBundledDestinations);
         List<Path> kotlinDestinations = assembleKotlinDsl(assemblyContext, serverPluginRoot);
         createdDestinations.addAll(kotlinDestinations);
 
@@ -213,6 +217,18 @@ public class ServerPluginWorkflow implements ArtifactListProvider {
         if (!agentDependencies.isEmpty()) {
             Path agentPath = util.createDir(serverPluginRoot.resolve(AGENT_SUBDIR));
             Pair<List<ResolvedArtifact>, List<Path>> copyResults = util.copyDependenciesInto(assemblyContext, parameters.isFailOnMissingDependencies(), agentDependencies, agentPath);
+            explicitDestinations.addAll(copyResults.getRight());
+        }
+        return explicitDestinations;
+    }
+
+    private List<Path> assembleBundledDependencies(Path serverPluginRoot, AssemblyContext assemblyContext, List<Artifact> agentPluginDependencies) throws MojoExecutionException {
+        List<Path> explicitDestinations = new ArrayList<>();
+
+        List<Dependency> bundledDependencies = pluginDependencies.stream().filter(it -> TEAMCITY_TOOL_CLASSIFIER.equalsIgnoreCase(it.getClassifier())).collect(Collectors.toList());
+        if (!bundledDependencies.isEmpty()) {
+            Path bundledPath = util.createDir(serverPluginRoot.resolve(BUNDLED_SUBDIR));
+            Pair<List<ResolvedArtifact>, List<Path>> copyResults = util.copyDependenciesInto(assemblyContext, parameters.isFailOnMissingDependencies(), bundledDependencies, bundledPath);
             explicitDestinations.addAll(copyResults.getRight());
         }
         return explicitDestinations;

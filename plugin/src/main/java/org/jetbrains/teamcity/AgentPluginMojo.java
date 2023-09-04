@@ -30,6 +30,8 @@ public class AgentPluginMojo extends BaseTeamCityMojo {
     private String spec;
     @Parameter(defaultValue = "${project.artifactId}")
     private String pluginName;
+    @Parameter(defaultValue = "")
+    private String intellijProjectPath;
     @Parameter(defaultValue = "org.jetbrains.teamcity,::zip")
     private List<String> exclusions;
     @Parameter
@@ -56,7 +58,7 @@ public class AgentPluginMojo extends BaseTeamCityMojo {
         getLog().warn("TeamCity Agent Assemble start");
         try {
             WorkflowUtil util = getWorkflowUtil();
-            Agent agent = new Agent(spec, pluginName, exclusions, tool, failOnMissingDependencies, ignoreExtraFilesIn, descriptor, getProject().getArtifactId(), extras);
+            Agent agent = new Agent(spec, pluginName, intellijProjectPath, exclusions, tool, failOnMissingDependencies, ignoreExtraFilesIn, descriptor, getProject().getArtifactId(), extras);
             agent.setDefaultValues(".", getProject(), getProjectBuildOutputDirectory(), pluginVersion);
             DependencyNode rootNode = findRootNode(util);
             agentPluginWorkflow = new AgentPluginWorkflow(rootNode, agent, util, getWorkDirectory().toPath());

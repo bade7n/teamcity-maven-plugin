@@ -23,6 +23,7 @@ import static org.jetbrains.teamcity.agent.WorkflowUtil.TEAMCITY_PLUGIN_XML;
 @Data
 public class AgentPluginWorkflow implements ArtifactListProvider {
     public static final String TEAMCITY_AGENT_PLUGIN_CLASSIFIER = "teamcity-agent-plugin";
+    public static final String TEAMCITY_TOOL_CLASSIFIER = "teamcity-tool";
     private final DependencyNode rootNode;
     private final Agent parameters;
     private final WorkflowUtil util;
@@ -43,7 +44,7 @@ public class AgentPluginWorkflow implements ArtifactListProvider {
             AssemblyContext assemblyContext = buildAgentPlugin(rootNode);
             assemblyContexts.add(assemblyContext);
         }
-        ideaArtifactList.addAll(new ArtifactBuilder(util.getLog(), util).build(getAssemblyContexts()));
+        ideaArtifactList.addAll(new ArtifactBuilder(util.getLog(), util).build(getAssemblyContexts(), parameters.getIntellijProjectPath()));
     }
 
 
@@ -66,7 +67,7 @@ public class AgentPluginWorkflow implements ArtifactListProvider {
          * |-server
          * |-teamcity-plugin.xml
          */
-        Path agentLibPath = util.createDir(agentPath.resolve("lib"));
+        Path agentLibPath = util.createDir(parameters.isTool() ?  agentPath : agentPath.resolve("lib"));
         assemblyContext.getPaths().add(new PathSet(agentLibPath));
         List<Artifact> nodes = util.getDependencyNodeList(rootNode, parameters.getSpec(), parameters.getExclusions());
         Pair<List<ResolvedArtifact>, List<Path>> artifacts = util.copyTransitiveDependenciesInto(parameters.isFailOnMissingDependencies(), assemblyContext, nodes, agentLibPath);
@@ -110,7 +111,7 @@ public class AgentPluginWorkflow implements ArtifactListProvider {
                 assemblyContexts.add(zipAssemblyContext.cloneWithRoot(agentPluginPath));
 
                 Path agentPart = util.zipFile(agentPath, Files.createDirectories(agentPluginPath), zipName);
-                attachedArtifacts.add(new ResultArtifact("zip", "teamcity-agent-plugin", agentPart, zipAssemblyContext));
+                attachedArtifacts.add(new ResultArtifact("zip", parameters.isTool() ?  TEAMCITY_TOOL_CLASSIFIER :TEAMCITY_AGENT_PLUGIN_CLASSIFIER, agentPart, zipAssemblyContext));
             } catch (IOException | MojoFailureException e) {
                 util.getLog().warn("Error while packing agent part to: " + agentPluginPath, e);
             }
