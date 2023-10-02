@@ -24,4 +24,11 @@
         </dependencies>
         #end
     #end
+    #if( $param.descriptor.parameters )
+        <parameters>
+            #foreach( $param in $param.descriptor.parameters.entrySet() )
+                <parameter name="${param.key}">${param.value}</parameter>
+            #end
+        </parameters>
+    #end
 </teamcity-agent-plugin>

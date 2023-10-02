@@ -6,7 +6,9 @@ import org.apache.maven.project.MavenProject;
 
 import java.io.File;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 @Data
 @NoArgsConstructor
@@ -31,6 +33,8 @@ public class Descriptor {
     private boolean isInUnitTest = false;
     @Parameter
     private String pluginVersion;
+    @Parameter
+    private Map<String, String> parameters = new HashMap<>();
 
     public void adjustDefaults(File projectBuildOutputDirectory, String fileName, MavenProject project, String pluginVersion) {
         if (path == null)
