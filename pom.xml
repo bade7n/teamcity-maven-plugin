@@ -5,6 +5,8 @@
   <packaging>pom</packaging>
   <version>1.6.28-SNAPSHOT</version>
   <name>TeamCity Parent Plugin</name>
+  <url>https://github.com/bade7n/teamcity-maven-plugin</url>
+  <description>Targeted to help developers easily build and package TeamCity plugins.</description>
 
   <properties>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
@@ -59,6 +61,19 @@
     <url>https://github.com/bade7n/teamcity-maven-plugin</url>
     <tag>teamcity-maven-plugin-parent-1.6.26</tag>
   </scm>
+
+  <licenses>
+    <license>
+      <url>http://www.apache.org/licenses/LICENSE-2.0</url>
+    </license>
+  </licenses>
+
+  <developers>
+    <developer>
+      <name>vi</name>
+      <organization>JetBrains</organization>
+    </developer>
+  </developers>
 
   <distributionManagement>
     <repository>

@@ -8,6 +8,9 @@
         <description>${project.description}</description>
 #end
         <version>${param.descriptor.pluginVersion}</version>
+#if( $project.url )
+        <url>$!{project.url}</url>
+#end
 #if( $project.organization )
         <vendor>
             <name>$!{project.organization.name}</name>
