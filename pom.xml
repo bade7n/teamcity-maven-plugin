@@ -6,7 +6,7 @@
   <version>1.6.30-SNAPSHOT</version>
   <name>TeamCity Parent Plugin</name>
   <url>https://github.com/bade7n/teamcity-maven-plugin</url>
-  <description>Targeted to help developers easily build and package TeamCity plugins.</description>
+  <description>Aims to help developers build and package TeamCity plugins.</description>
 
   <properties>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
