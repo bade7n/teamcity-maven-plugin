@@ -89,12 +89,6 @@ public class ServerPluginWorkflow implements ArtifactListProvider {
             zipAssemblyContext.getPaths().add(new PathSet(dist).with(new ArtifactPathEntry(zipName, assemblyContext.getName())));
             assemblyContexts.add(zipAssemblyContext.cloneWithRoot(dist));
             attachedArtifacts.add(new ResultArtifact("zip", "teamcity-plugin", plugin, zipAssemblyContext));
-
-            Path pluginInZip = util.zipFile(dist, util.getWorkDirectory(), zipName);
-            AssemblyContext pluginInZipAssemblyContext = util.createAssemblyContext("SERVER-IN-ZIP", util.getWorkDirectory());
-            pluginInZipAssemblyContext.getPaths().add(new PathSet(util.getWorkDirectory()).with(new ArtifactPathEntry(zipName, zipAssemblyContext.getName())));
-            assemblyContexts.add(pluginInZipAssemblyContext.cloneWithRoot(util.getWorkDirectory()));
-            attachedArtifacts.add(new ResultArtifact("zip", "teamcity-plugin-zip", pluginInZip, pluginInZipAssemblyContext));
         }
 
 
