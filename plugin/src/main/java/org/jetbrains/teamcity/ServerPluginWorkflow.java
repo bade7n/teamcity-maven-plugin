@@ -72,8 +72,7 @@ public class ServerPluginWorkflow implements ArtifactListProvider {
                 }
             }
 
-            Path pluginPath = util.getWorkDirectory().resolve("plugin");
-            Path serverPluginRoot = util.createDir(pluginPath.resolve(parameters.getPluginName()));
+            Path serverPluginRoot = util.createDir(util.getWorkDirectory().resolve("plugin").resolve(parameters.getPluginName()));
             AssemblyContext assemblyContext = buildServerPlugin(serverPluginRoot, rootNode);
 
             assemblyContexts.add(assemblyContext.cloneWithRoot());
@@ -91,19 +90,11 @@ public class ServerPluginWorkflow implements ArtifactListProvider {
             assemblyContexts.add(zipAssemblyContext.cloneWithRoot(dist));
             attachedArtifacts.add(new ResultArtifact("zip", "teamcity-plugin", plugin, zipAssemblyContext));
 
-            Path pluginInZip = util.zipFile(pluginPath, util.getWorkDirectory(), zipName);
+            Path pluginInZip = util.zipFile(dist, util.getWorkDirectory(), zipName);
             AssemblyContext pluginInZipAssemblyContext = util.createAssemblyContext("SERVER-IN-ZIP", util.getWorkDirectory());
             pluginInZipAssemblyContext.getPaths().add(new PathSet(util.getWorkDirectory()).with(new ArtifactPathEntry(zipName, zipAssemblyContext.getName())));
             assemblyContexts.add(pluginInZipAssemblyContext.cloneWithRoot(util.getWorkDirectory()));
             attachedArtifacts.add(new ResultArtifact("zip", "teamcity-plugin-zip", pluginInZip, pluginInZipAssemblyContext));
-
-            String zipName1 = "packed-" + zipName;
-            Path pluginInZip1 = util.zipFile(pluginPath, util.getWorkDirectory(), zipName1);
-            AssemblyContext pluginInZipAssemblyContext1 = util.createAssemblyContext("SERVER-IN-ZIP-PACKED", util.getWorkDirectory());
-            pluginInZipAssemblyContext1.getPaths().add(new PathSet(util.getWorkDirectory()).with(new ArtifactPathEntry(zipName1, zipAssemblyContext.getName())));
-            assemblyContexts.add(pluginInZipAssemblyContext1.cloneWithRoot(util.getWorkDirectory()));
-            attachedArtifacts.add(new ResultArtifact("zip", "teamcity-plugin-packed", pluginInZip1, pluginInZipAssemblyContext1));
-
         }
 
 

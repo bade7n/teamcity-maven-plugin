@@ -236,19 +236,6 @@ public class AssemblePluginMojoTestCase extends BasePluginTestCase {
                         </root>
                     </artifact>
                 </component>
-                """,
-                // language=XML
-                """
-                <component name="ArtifactManager">
-                    <artifact name="TC::SERVER-IN-ZIP-PACKED::project-to-test">
-                        <output-path>$PROJECT_DIR$/target/teamcity</output-path>
-                        <root id="root">
-                            <element id="archive" name="packed-project-to-test.zip">
-                                <element artifact-name="TC::SERVER::project-to-test" id="artifact"/>
-                            </element>
-                        </root>
-                    </artifact>
-                </component>
                 """);
     }
 
@@ -393,19 +380,6 @@ public class AssemblePluginMojoTestCase extends BasePluginTestCase {
                         <output-path>$PROJECT_DIR$/target/teamcity</output-path>
                         <root id="root">
                             <element id="archive" name="multi-module-to-test.zip">
-                                <element artifact-name="TC::SERVER::multi-module-to-test" id="artifact"/>
-                            </element>
-                        </root>
-                    </artifact>
-                </component>
-                """,
-                // language=XML
-                """
-                <component name="ArtifactManager">
-                    <artifact name="TC::SERVER-IN-ZIP-PACKED::multi-module-to-test">
-                        <output-path>$PROJECT_DIR$/target/teamcity</output-path>
-                        <root id="root">
-                            <element id="archive" name="packed-multi-module-to-test.zip">
                                 <element artifact-name="TC::SERVER::multi-module-to-test" id="artifact"/>
                             </element>
                         </root>
