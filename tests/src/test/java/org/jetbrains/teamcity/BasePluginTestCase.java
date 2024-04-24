@@ -37,6 +37,7 @@ import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.jetbrains.teamcity.ServerPluginWorkflow.TEAMCITY_PLUGIN_CLASSIFIER;
 
 public abstract class BasePluginTestCase {
     @Rule
@@ -171,7 +172,7 @@ public abstract class BasePluginTestCase {
 
     protected void appendTestResult(StringJoiner sb, ServerPluginWorkflow spw) throws IOException {
         sb.add("SERVER:");
-        Optional<ResultArtifact> a = spw.getAttachedArtifacts().stream().filter(it -> it.getClassifier().equalsIgnoreCase("teamcity-plugin")).findFirst();
+        Optional<ResultArtifact> a = spw.getAttachedArtifacts().stream().filter(it -> it.getClassifier().equalsIgnoreCase(TEAMCITY_PLUGIN_CLASSIFIER)).findFirst();
         if (a.isPresent()) {
             try (ZipFile zipFile = new ZipFile(a.get().getFile().toFile())) {
                 zipFile.stream()

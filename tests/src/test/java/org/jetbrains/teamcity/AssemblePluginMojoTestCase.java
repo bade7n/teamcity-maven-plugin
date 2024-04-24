@@ -223,6 +223,19 @@ public class AssemblePluginMojoTestCase extends BasePluginTestCase {
                         </root>
                     </artifact>
                 </component>
+                """,
+                // language=XML
+                """
+                <component name="ArtifactManager">
+                    <artifact name="TC::SERVER-PACKED::project-to-test">
+                        <output-path>$PROJECT_DIR$/target/teamcity/dist</output-path>
+                        <root id="root">
+                            <element id="archive" name="project-to-test-packed.zip">
+                                <element artifact-name="TC::SERVER::project-to-test::4IDEA" id="artifact"/>
+                            </element>
+                        </root>
+                    </artifact>
+                </component>
                 """);
     }
 
@@ -359,7 +372,21 @@ public class AssemblePluginMojoTestCase extends BasePluginTestCase {
                         </root>
                     </artifact>
                 </component>
-                """);
+                """,
+                // language=XML
+                """
+                <component name="ArtifactManager">
+                    <artifact name="TC::SERVER-PACKED::multi-module-to-test">
+                        <output-path>$PROJECT_DIR$/target/teamcity/dist</output-path>
+                        <root id="root">
+                            <element id="archive" name="multi-module-to-test-packed.zip">
+                                <element artifact-name="TC::SERVER::multi-module-to-test::4IDEA" id="artifact"/>
+                            </element>
+                        </root>
+                    </artifact>
+                </component>
+                """
+        );
     }
 
 

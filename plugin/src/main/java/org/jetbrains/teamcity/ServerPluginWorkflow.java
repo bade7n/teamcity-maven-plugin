@@ -31,6 +31,7 @@ import static org.jetbrains.teamcity.agent.WorkflowUtil.TEAMCITY_PLUGIN_XML;
 @Data
 public class ServerPluginWorkflow implements ArtifactListProvider {
     public static final String TEAMCITY_PLUGIN_CLASSIFIER = "teamcity-plugin";
+    public static final String TEAMCITY_PLUGIN_CLASSIFIER_PACKED = "teamcity-plugin-packed";
     public static final String AGENT_SUBDIR = "agent";
     public static final String BUNDLED_SUBDIR = "bundled";
 
@@ -72,7 +73,8 @@ public class ServerPluginWorkflow implements ArtifactListProvider {
                 }
             }
 
-            Path serverPluginRoot = util.createDir(util.getWorkDirectory().resolve("plugin").resolve(parameters.getPluginName()));
+            Path pluginPath = util.getWorkDirectory().resolve("plugin");
+            Path serverPluginRoot = util.createDir(pluginPath.resolve(parameters.getPluginName()));
             AssemblyContext assemblyContext = buildServerPlugin(serverPluginRoot, rootNode);
 
             assemblyContexts.add(assemblyContext.cloneWithRoot());
@@ -81,14 +83,22 @@ public class ServerPluginWorkflow implements ArtifactListProvider {
             assemblyContexts.add(ideaAssemblyContext.cloneWithRoot());
 
 
-            String zipName = parameters.getPluginName() + ".zip";
             Path dist = util.getWorkDirectory().resolve("dist");
+            String zipName = parameters.getPluginName() + ".zip";
             Path plugin = util.zipFile(serverPluginRoot, dist, zipName);
+
+            String zipPackedName = parameters.getPluginName() + "-packed.zip";
+            Path pluginPacked = util.zipFile(pluginPath, dist, zipPackedName);
 
             AssemblyContext zipAssemblyContext = util.createAssemblyContext("SERVER", dist);
             zipAssemblyContext.getPaths().add(new PathSet(dist).with(new ArtifactPathEntry(zipName, assemblyContext.getName())));
+            AssemblyContext zipPackedAssemblyContext = util.createAssemblyContext("SERVER-PACKED", dist);
+            zipPackedAssemblyContext.getPaths().add(new PathSet(dist).with(new ArtifactPathEntry(zipPackedName, ideaAssemblyContext.getName())));
+
             assemblyContexts.add(zipAssemblyContext.cloneWithRoot(dist));
-            attachedArtifacts.add(new ResultArtifact("zip", "teamcity-plugin", plugin, zipAssemblyContext));
+            assemblyContexts.add(zipPackedAssemblyContext.cloneWithRoot(dist));
+            attachedArtifacts.add(new ResultArtifact("zip", TEAMCITY_PLUGIN_CLASSIFIER, plugin, zipAssemblyContext));
+            attachedArtifacts.add(new ResultArtifact("zip", TEAMCITY_PLUGIN_CLASSIFIER_PACKED, pluginPacked, zipPackedAssemblyContext));
         }
 
 

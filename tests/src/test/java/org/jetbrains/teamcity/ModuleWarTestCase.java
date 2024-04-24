@@ -77,6 +77,17 @@ public class ModuleWarTestCase extends BasePluginTestCase {
         </root>
     </artifact>
 </component>
+""", """
+<component name="ArtifactManager">
+    <artifact name="TC::SERVER-PACKED::module-war">
+        <output-path>$PROJECT_DIR$/target/teamcity/dist</output-path>
+        <root id="root">
+            <element id="archive" name="module-war-packed.zip">
+                <element artifact-name="TC::SERVER::module-war::4IDEA" id="artifact"/>
+            </element>
+        </root>
+    </artifact>
+</component>
 """);
 
     }
