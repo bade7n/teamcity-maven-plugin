@@ -30,7 +30,7 @@ import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-@Mojo(name = "build", defaultPhase = LifecyclePhase.PACKAGE, aggregator = true, requiresProject = true, requiresDependencyResolution = ResolutionScope.TEST, requiresDependencyCollection = ResolutionScope.TEST)
+@Mojo(name = "build", defaultPhase = LifecyclePhase.PACKAGE, aggregator = false, requiresProject = true, requiresDependencyResolution = ResolutionScope.TEST, requiresDependencyCollection = ResolutionScope.TEST)
 public class AssemblePluginMojo extends BaseTeamCityMojo {
     @Parameter(defaultValue = "${project.remoteProjectRepositories}")
     private List<RemoteRepository> projectRepos;
