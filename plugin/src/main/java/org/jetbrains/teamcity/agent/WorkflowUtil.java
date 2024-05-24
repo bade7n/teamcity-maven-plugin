@@ -90,10 +90,16 @@ public class WorkflowUtil {
     }
 
     private Stream<Artifact> getArtifactList(MavenProject it) {
-        return new ArrayList<Artifact>() {{
-            add(it.getArtifact());
-            addAll(it.getArtifacts());
-        }}.stream();
+        try {
+            Set<Artifact> artifacts = it.getArtifacts();
+            return new ArrayList<Artifact>() {{
+                add(it.getArtifact());
+                addAll(artifacts);
+            }}.stream();
+        } catch (Exception e) {
+            log.error("Error while getting list of artifacts from " + it.getName(), e);
+            throw new RuntimeException(e);
+        }
     }
 
     public boolean isNeedToBuild(String a) {
