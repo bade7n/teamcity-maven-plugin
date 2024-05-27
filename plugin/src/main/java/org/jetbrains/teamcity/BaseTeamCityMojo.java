@@ -42,9 +42,6 @@ public abstract class BaseTeamCityMojo extends AbstractMojo {
     @Parameter(defaultValue = "${project.remoteProjectRepositories}", readonly = true, required = true)
     private List<RemoteRepository> repositories;
 
-    @Parameter(defaultValue = "${reactorProjects}", readonly = true, required = true)
-    private List<MavenProject> reactorProjects;
-
     @Parameter(defaultValue = "${project}", required = true, readonly = true)
     private MavenProject project;
 
@@ -81,7 +78,7 @@ public abstract class BaseTeamCityMojo extends AbstractMojo {
 
     public WorkflowUtil getWorkflowUtil() throws IOException {
         ResolveUtil resolve = new ResolveUtil(getLog(), repoSystem, repositories, repoSession);
-        return new WorkflowUtil(getLog(), reactorProjects, project, workDirectory.toPath(), resolve, tokens, artifactFactory, archiverManager, outputTimestamp, session);
+        return new WorkflowUtil(getLog(), project, workDirectory.toPath(), resolve, tokens, artifactFactory, archiverManager, outputTimestamp, session);
     }
 
 

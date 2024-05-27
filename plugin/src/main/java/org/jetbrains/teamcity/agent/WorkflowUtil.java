@@ -64,7 +64,6 @@ public class WorkflowUtil {
     public static final String TEAMCITY_PLUGIN_XML = "teamcity-plugin.xml";
 
     private final Log log;
-    private final List<Artifact> reactorProjectList;
     private final MavenProject project;
     private final Path workDirectory;
 
@@ -76,9 +75,8 @@ public class WorkflowUtil {
     private String outputTimestamp;
     private MavenSession session;
 
-    public WorkflowUtil(Log log, List<MavenProject> reactorProjects, MavenProject project, Path workDirectory, ResolveUtil resolve, String tokens, ArtifactFactory artifactFactory, ArchiverManager archiverManager, String outputTimestamp, MavenSession session) {
+    public WorkflowUtil(Log log, MavenProject project, Path workDirectory, ResolveUtil resolve, String tokens, ArtifactFactory artifactFactory, ArchiverManager archiverManager, String outputTimestamp, MavenSession session) {
         this.log = log;
-        this.reactorProjectList = reactorProjects.stream().flatMap(this::getArtifactList).collect(Collectors.toList());
         this.project = project;
         this.workDirectory = workDirectory;
         this.resolve = resolve;
@@ -88,19 +86,19 @@ public class WorkflowUtil {
         this.outputTimestamp = outputTimestamp;
         this.session = session;
     }
-
-    private Stream<Artifact> getArtifactList(MavenProject it) {
-        try {
-            Set<Artifact> artifacts = it.getArtifacts();
-            return new ArrayList<Artifact>() {{
-                add(it.getArtifact());
-                addAll(artifacts);
-            }}.stream();
-        } catch (Exception e) {
-            log.error("Error while getting list of artifacts from " + it.getName(), e);
-            throw new RuntimeException(e);
-        }
-    }
+//
+//    private Stream<Artifact> getArtifactList(MavenProject it) {
+//        try {
+//            Set<Artifact> artifacts = it.getArtifacts();
+//            return new ArrayList<Artifact>() {{
+//                add(it.getArtifact());
+//                addAll(artifacts);
+//            }}.stream();
+//        } catch (Exception e) {
+//            log.error("Error while getting list of artifacts from " + it.getName(), e);
+//            throw new RuntimeException(e);
+//        }
+//    }
 
     public boolean isNeedToBuild(String a) {
         return a != null && !Jdk8Compat.isBlank(a);
@@ -336,9 +334,14 @@ public class WorkflowUtil {
     private boolean isReactorProject(Artifact a) {
         // reactorProjectList contains also a libraries, in order to distinguish we can check location (should be under project.basedir) somewhere or
         // version should match multi-module project.
-        if (reactorProjectList.contains(a)) {
-            Optional<Artifact> a1 = reactorProjectList.stream().filter(it -> it.equals(a)).findFirst();
-            if (a1.isPresent()) {
+
+        //        session.getAllProjects()
+        Optional<Artifact> a1 = session.getProjects().stream().map(MavenProject::getArtifact).filter(it -> compareArtifacts(it, a)).findFirst();
+        return a1.isPresent();
+
+//        if (reactorProjectList.contains(a)) {
+//            Optional<Artifact> a1 = reactorProjectList.stream().filter(it -> it.equals(a)).findFirst();
+//            if (a1.isPresent()) {
 
 //                List<Artifact> strings = new ArrayList<>();
 //                Path baseDir = project.getParent().getBasedir().toPath();
@@ -354,11 +357,16 @@ public class WorkflowUtil {
 //                    }
 //                }
 //                boolean hasCommonRootPath = a1.get().getFile().getAbsolutePath().startsWith(project.getParent().getBasedir().getAbsolutePath());
-                Artifact artifact = a1.get();
-                return artifact.getVersion().equalsIgnoreCase(project.getVersion()) && project.getGroupId().equalsIgnoreCase(artifact.getGroupId());
-            }
-        }
-        return false;
+//                Artifact artifact = a1.get();
+//                return artifact.getVersion().equalsIgnoreCase(project.getVersion()) && project.getGroupId().equalsIgnoreCase(artifact.getGroupId());
+//            }
+//        }
+    }
+
+    private boolean compareArtifacts(Artifact it, Artifact a) {
+        return Objects.equals(it.getArtifactId(), a.getArtifactId())
+                && Objects.equals(it.getGroupId(), a.getGroupId())
+                && Objects.equals(it.getVersion(), a.getVersion());
     }
 
     public Path getJarFile(Path basedir, String resultFinalName, String classifier) {
