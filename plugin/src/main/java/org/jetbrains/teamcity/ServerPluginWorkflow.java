@@ -148,6 +148,8 @@ public class ServerPluginWorkflow implements ArtifactListProvider {
         createdDestinations.addAll(explicitBundledDestinations);
         List<Path> kotlinDestinations = assembleKotlinDsl(assemblyContext, serverPluginRoot);
         createdDestinations.addAll(kotlinDestinations);
+        List<Path> uiSchemaDestinations = assembleUiSchemas(assemblyContext, serverPluginRoot);
+        createdDestinations.addAll(uiSchemaDestinations);
 
         if (parameters.isNeedToBuildCommon()) {
             assemblyContext.getPaths().add(new PathSet(serverPluginRoot.resolve("common")));
@@ -268,6 +270,31 @@ public class ServerPluginWorkflow implements ArtifactListProvider {
             String content = "`requireKotlinDsl` set to true but sources not found in " + parameters.getKotlinDslDescriptorsPath().getPath();
             util.getLog().error(content);
             throw new MojoExecutionException(content);
+        }
+        return destinations;
+    }
+
+    private List<Path> assembleUiSchemas(AssemblyContext assemblyContext, Path serverPluginRoot) {
+        List<Path> destinations = new ArrayList<>();
+        if (!parameters.getUiSchemasPath().isDirectory()) {
+            return destinations;
+        }
+        Path uiSchemasPath = util.createDir(serverPluginRoot.resolve("ui-schemas"));
+        assemblyContext.getPaths().add(new PathSet(uiSchemasPath).with(new DirCopyPathEntry(parameters.getUiSchemasPath().toPath())));
+        try {
+            Files.walk(parameters.getUiSchemasPath().toPath()).forEach(it -> {
+                try {
+                    if (it.toFile().isFile()) {
+                        Path target = uiSchemasPath.resolve(it.getFileName());
+                        destinations.add(target);
+                        Files.copy(it, target, REPLACE_EXISTING);
+                    }
+                } catch (IOException e) {
+                    util.getLog().warn("Can't copy " + it + " to " + uiSchemasPath, e);
+                }
+            });
+        } catch (IOException e) {
+            util.getLog().warn("Can't copy " + parameters.getUiSchemasPath() + " to " + uiSchemasPath);
         }
         return destinations;
     }

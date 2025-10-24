@@ -31,6 +31,8 @@ public class Server {
     private List<String> commonExclusions;
     @Parameter(defaultValue = "${project.build.outputDirectory}/kotlin-dsl")
     private File kotlinDslDescriptorsPath;
+    @Parameter(defaultValue = "${project.build.outputDirectory}/ui-schemas")
+    private File uiSchemasPath;
     @Parameter
     private List<String> ignoreExtraFilesIn;
     @Parameter
@@ -57,6 +59,8 @@ public class Server {
             buildServerResources = new ArrayList<>();
         if (kotlinDslDescriptorsPath == null)
             kotlinDslDescriptorsPath = projectBuildOutputDirectory.toPath().resolve("kotlin-dsl").toFile();
+        if (uiSchemasPath == null)
+            uiSchemasPath = projectBuildOutputDirectory.toPath().resolve("ui-schemas").toFile();
         descriptor.adjustDefaults(projectBuildOutputDirectory, "teamcity-plugin.xml", project, pluginVersion);
     }
 

@@ -100,7 +100,9 @@ public class AssemblePluginMojoTestCase extends BasePluginTestCase {
                 "server/\n" +
                 "server/commons-codec-1.15.jar\n" +
                 "server/project-to-test-1.1-SNAPSHOT.jar\n" +
-                "teamcity-plugin.xml");
+                "teamcity-plugin.xml" +
+                "ui-schemas/\n" +
+                "ui-schemas/test\n");
         // language=XML
         filesAreEqual(mojo.getAgentPluginWorkflow().getPluginDescriptorPath(), """
                 <?xml version="1.0" encoding="UTF-8"?>
@@ -190,6 +192,9 @@ public class AssemblePluginMojoTestCase extends BasePluginTestCase {
                             </element>
                             <element id="directory" name="kotlin-dsl">
                                 <element id="dir-copy" path="$PROJECT_DIR$/target/classes/kotlin-dsl"/>
+                            </element>
+                            <element id="directory" name="ui-schemas">
+                                <element id="dir-copy" path="$PROJECT_DIR$/target/classes/ui-schemas"/>
                             </element>
                             <element id="directory" name="agent">
                                 <element artifact-name="TC::AGENT::project-to-test" id="artifact"/>
