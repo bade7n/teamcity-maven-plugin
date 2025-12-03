@@ -38,6 +38,8 @@ public class AgentPluginMojo extends BaseTeamCityMojo {
     private boolean tool; // if this is tool deployment
     @Parameter(defaultValue = "true")
     private boolean failOnMissingDependencies = true;
+    @Parameter(defaultValue = "false")
+    private boolean createIdeaArtifacts = false;
     @Parameter
     private List<String> ignoreExtraFilesIn;
 
@@ -61,7 +63,7 @@ public class AgentPluginMojo extends BaseTeamCityMojo {
             Agent agent = new Agent(spec, pluginName, intellijProjectPath, exclusions, tool, failOnMissingDependencies, ignoreExtraFilesIn, descriptor, getProject().getArtifactId(), extras);
             agent.setDefaultValues(".", getProject(), getProjectBuildOutputDirectory(), pluginVersion);
             DependencyNode rootNode = findRootNode(util);
-            agentPluginWorkflow = new AgentPluginWorkflow(rootNode, agent, util, getWorkDirectory().toPath());
+            agentPluginWorkflow = new AgentPluginWorkflow(rootNode, agent, util, getWorkDirectory().toPath(), isCreateIdeaArtifacts());
             agentPluginWorkflow.execute();
             attachArtifacts(agentPluginWorkflow.getAttachedArtifacts());
         } catch (IOException e) {

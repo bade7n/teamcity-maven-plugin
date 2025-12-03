@@ -43,6 +43,8 @@ public class ServerPluginWorkflow implements ArtifactListProvider {
 
     private final Path workDirectory;
 
+    private final boolean createIdeaArtifacts;
+
     private final List<AssemblyContext> assemblyContexts = new ArrayList<>();
 
     private final List<ResultArtifact> attachedArtifacts = new ArrayList<>();
@@ -101,8 +103,12 @@ public class ServerPluginWorkflow implements ArtifactListProvider {
             attachedArtifacts.add(new ResultArtifact("zip", TEAMCITY_PLUGIN_CLASSIFIER_PACKED, pluginPacked, zipPackedAssemblyContext));
         }
 
+        if (isApplicable())
+            ideaArtifactList.addAll(new ArtifactBuilder(util.getLog(), util).build(getAssemblyContexts(), parameters.getIntellijProjectPath()));
+    }
 
-        ideaArtifactList.addAll(new ArtifactBuilder(util.getLog(), util).build(getAssemblyContexts(), parameters.getIntellijProjectPath()));
+    public boolean isApplicable() {
+        return createIdeaArtifacts;
     }
 
     private AssemblyContext buildServerPlugin(Path serverPluginRoot, DependencyNode rootNode) throws MojoExecutionException, IOException {

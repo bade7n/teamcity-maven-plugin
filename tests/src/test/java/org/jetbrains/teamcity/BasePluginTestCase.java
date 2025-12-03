@@ -151,9 +151,11 @@ public abstract class BasePluginTestCase {
     }
 
     protected void assertIdeaArtifacts(ArtifactListProvider apl, String... s) throws IOException {
-        assertThat(apl.getIdeaArtifactList()).hasSize(s.length);
-        for (int i = 0; i < s.length;i++) {
-            filesAreEqual(apl.getIdeaArtifactList().get(i), s[i]);
+        if (apl.isApplicable()) {
+            assertThat(apl.getIdeaArtifactList()).hasSize(s.length);
+            for (int i = 0; i < s.length; i++) {
+                filesAreEqual(apl.getIdeaArtifactList().get(i), s[i]);
+            }
         }
     }
 

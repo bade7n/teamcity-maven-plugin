@@ -34,6 +34,8 @@ public class AgentPluginWorkflow implements ArtifactListProvider {
 
     private final Path workDirectory;
 
+    private final boolean createIdeaArtifacts;
+
     private Path agentPath;
     private Path pluginDescriptorPath;
 
@@ -44,9 +46,13 @@ public class AgentPluginWorkflow implements ArtifactListProvider {
             AssemblyContext assemblyContext = buildAgentPlugin(rootNode);
             assemblyContexts.add(assemblyContext);
         }
-        ideaArtifactList.addAll(new ArtifactBuilder(util.getLog(), util).build(getAssemblyContexts(), parameters.getIntellijProjectPath()));
+        if (isCreateIdeaArtifacts())
+            ideaArtifactList.addAll(new ArtifactBuilder(util.getLog(), util).build(getAssemblyContexts(), parameters.getIntellijProjectPath()));
     }
 
+    public boolean isApplicable() {
+        return createIdeaArtifacts;
+    }
 
     public AssemblyContext buildAgentPlugin(DependencyNode rootNode) throws MojoExecutionException {
         Path agentUnpacked = workDirectory.resolve("agent-unpacked");

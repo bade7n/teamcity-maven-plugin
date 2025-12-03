@@ -86,6 +86,8 @@ public class AssemblePluginMojo extends BaseTeamCityMojo {
     @Getter
     @Setter
     private Server server;
+    @Parameter(defaultValue = "false")
+    private boolean createIdeaArtifacts = false;
 
     @Getter
     private AgentPluginWorkflow agentPluginWorkflow;
@@ -101,11 +103,11 @@ public class AssemblePluginMojo extends BaseTeamCityMojo {
             WorkflowUtil util = getWorkflowUtil();
             DependencyNode rootNode = findRootNode(util);
 
-            agentPluginWorkflow = new AgentPluginWorkflow(rootNode, agent, util, getWorkDirectory().toPath());
+            agentPluginWorkflow = new AgentPluginWorkflow(rootNode, agent, util, getWorkDirectory().toPath(), createIdeaArtifacts);
             agentPluginWorkflow.execute();
             attachArtifacts(agentPluginWorkflow.getAttachedArtifacts());
 
-            serverPluginWorkflow = new ServerPluginWorkflow(rootNode, server, util, getProject(), getWorkDirectory().toPath());
+            serverPluginWorkflow = new ServerPluginWorkflow(rootNode, server, util, getProject(), getWorkDirectory().toPath(), createIdeaArtifacts);
             serverPluginWorkflow.getAgentAttachedRuntimeArtifacts().addAll(agentPluginWorkflow.getAttachedArtifacts());
             serverPluginWorkflow.setAgentSpec(agent.getSpec());
             findPluginConfiguration().ifPresent(plugin -> serverPluginWorkflow.getPluginDependencies().addAll(plugin.getDependencies()));
